@@ -98,10 +98,6 @@ export async function createAppWithConfig(input: {
       .returning()
       .get()
 
-    if (!app) {
-      throw new Error("Failed to create app")
-    }
-
     if (input.variables?.length) {
       transaction.insert(variableConfigs).values(
         input.variables.map((variable) => ({

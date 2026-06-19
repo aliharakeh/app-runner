@@ -39,7 +39,9 @@ export async function getWorkspace(id: number) {
   return db.query.workspaces.findFirst({
     where: eq(workspaces.id, id),
     with: {
-      apps: true,
+      apps: {
+        orderBy: [asc(apps.name)],
+      },
     },
   })
 }
