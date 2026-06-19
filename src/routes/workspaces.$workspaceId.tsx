@@ -1,11 +1,21 @@
 import { Dialog } from "@base-ui/react/dialog"
-import { createFileRoute, useRouter } from "@tanstack/react-router"
+import { Link, createFileRoute, useRouter } from "@tanstack/react-router"
 import { useServerFn } from "@tanstack/react-start"
-import { FolderOpen, Plus, Trash2 } from "lucide-react"
+import {
+  FileCode,
+  FolderOpen,
+  Play,
+  Plus,
+  Trash2,
+  Variable,
+} from "lucide-react"
 import * as React from "react"
 
 import { Button } from "@/components/ui/button"
-import { CreateAppDialog, getErrorMessage } from "@/components/workspace-dialogs"
+import {
+  CreateAppDialog,
+  getErrorMessage,
+} from "@/components/workspace-dialogs"
 import {
   createAppFn,
   deleteWorkspaceFn,
@@ -138,9 +148,15 @@ function WorkspaceOverview() {
       {selectedWorkspace.apps.length ? (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {selectedWorkspace.apps.map((app) => (
-            <article
+            <Link
               key={app.id}
-              className="flex min-h-36 flex-col gap-4 rounded-md border bg-card p-4 text-card-foreground"
+              to="/workspaces/$workspaceId/apps/$appId"
+              params={{
+                workspaceId: String(selectedWorkspace.id),
+                appId: String(app.id),
+              }}
+              search={{ tab: "variables" }}
+              className="flex min-h-44 flex-col gap-4 rounded-md border bg-card p-4 text-card-foreground transition-colors hover:bg-muted/40"
             >
               <div className="flex items-start gap-3">
                 <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
@@ -153,17 +169,24 @@ function WorkspaceOverview() {
                   </p>
                 </div>
               </div>
-              <dl className="mt-auto grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <dt className="text-muted-foreground">Created</dt>
-                  <dd className="mt-1 truncate">{formatDate(app.createdAt)}</dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">Updated</dt>
-                  <dd className="mt-1 truncate">{formatDate(app.updatedAt)}</dd>
-                </div>
+              <dl className="mt-auto grid gap-3 text-sm">
+                <ConfigStat
+                  icon={<Variable />}
+                  label="Variables"
+                  value={String(app.variableConfigs.length)}
+                />
+                <ConfigStat
+                  icon={<FileCode />}
+                  label="Templates"
+                  value={String(app.templateConfigs.length)}
+                />
+                <ConfigStat
+                  icon={<Play />}
+                  label="Run command"
+                  value={app.runConfig?.command || "Not configured"}
+                />
               </dl>
-            </article>
+            </Link>
           ))}
         </div>
       ) : (
@@ -208,6 +231,28 @@ function WorkspaceOverview() {
   )
 }
 
+function ConfigStat({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode
+  label: string
+  value: string
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+        {icon}
+      </div>
+      <dt className="shrink-0 text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 flex-1 truncate text-right font-medium">
+        {value}
+      </dd>
+    </div>
+  )
+}
+
 function DeleteWorkspaceDialog({
   error,
   isPending,
@@ -227,7 +272,7 @@ function DeleteWorkspaceDialog({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 bg-background/80 backdrop-blur-sm" />
-        <Dialog.Popup className="fixed left-1/2 top-1/2 flex w-[min(calc(100vw-2rem),25rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-md border bg-popover p-5 text-popover-foreground shadow-lg outline-none">
+        <Dialog.Popup className="fixed top-1/2 left-1/2 flex w-[min(calc(100vw-2rem),25rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-md border bg-popover p-5 text-popover-foreground shadow-lg outline-none">
           <div className="flex flex-col gap-2">
             <Dialog.Title className="text-base font-semibold">
               Delete workspace
@@ -262,11 +307,4 @@ function DeleteWorkspaceDialog({
       </Dialog.Portal>
     </Dialog.Root>
   )
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value))
 }

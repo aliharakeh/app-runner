@@ -3,10 +3,12 @@ import "@tanstack/react-start/server-only"
 import { asc, eq, sql } from "drizzle-orm"
 
 import { db, ensureDatabaseSchema } from "../client.server"
-import { apps, workspaces } from "../schema"
+import { apps, templateConfigs, variableConfigs, workspaces } from "../schema"
 import type { NewWorkspace } from "../schema"
 
-export type WorkspaceWithApps = Awaited<ReturnType<typeof listWorkspaces>>[number]
+export type WorkspaceWithApps = Awaited<
+  ReturnType<typeof listWorkspaces>
+>[number]
 
 export async function createWorkspace(input: Pick<NewWorkspace, "name">) {
   ensureDatabaseSchema()
@@ -28,6 +30,15 @@ export async function listWorkspaces() {
     with: {
       apps: {
         orderBy: [asc(apps.name)],
+        with: {
+          variableConfigs: {
+            orderBy: [asc(variableConfigs.name)],
+          },
+          templateConfigs: {
+            orderBy: [asc(templateConfigs.name)],
+          },
+          runConfig: true,
+        },
       },
     },
   })
@@ -41,6 +52,15 @@ export async function getWorkspace(id: number) {
     with: {
       apps: {
         orderBy: [asc(apps.name)],
+        with: {
+          variableConfigs: {
+            orderBy: [asc(variableConfigs.name)],
+          },
+          templateConfigs: {
+            orderBy: [asc(templateConfigs.name)],
+          },
+          runConfig: true,
+        },
       },
     },
   })

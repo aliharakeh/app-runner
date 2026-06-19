@@ -3,12 +3,7 @@ import "@tanstack/react-start/server-only"
 import { asc, eq, sql } from "drizzle-orm"
 
 import { db, ensureDatabaseSchema } from "../client.server"
-import {
-  apps,
-  runConfigs,
-  templateConfigs,
-  variableConfigs,
-} from "../schema"
+import { apps, runConfigs, templateConfigs, variableConfigs } from "../schema"
 import type { NewApp } from "../schema"
 
 export async function createApp(

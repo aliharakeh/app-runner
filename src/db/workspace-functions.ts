@@ -44,6 +44,80 @@ function parseWorkspaceId(input: { workspaceId?: number | string }) {
   return { workspaceId }
 }
 
+function parseAppId(input: { appId?: number | string }) {
+  const appId = Number(input.appId)
+
+  if (!Number.isInteger(appId) || appId < 1) {
+    throw new Error("App is required")
+  }
+
+  return { appId }
+}
+
+function parseConfigId(input: { id?: number | string }) {
+  const id = Number(input.id)
+
+  if (!Number.isInteger(id) || id < 1) {
+    throw new Error("Configuration is required")
+  }
+
+  return { id }
+}
+
+function parseVariableConfigInput(input: {
+  appId?: number | string
+  name?: string
+  value?: string
+}) {
+  const { appId } = parseAppId(input)
+  const name = input.name?.trim()
+  const value = input.value?.trim()
+
+  if (!name) {
+    throw new Error("Variable name is required")
+  }
+
+  if (!value) {
+    throw new Error("Variable value is required")
+  }
+
+  return { appId, name, value }
+}
+
+function parseTemplateConfigInput(input: {
+  appId?: number | string
+  name?: string
+  templateContent?: string
+}) {
+  const { appId } = parseAppId(input)
+  const name = input.name?.trim()
+  const templateContent = input.templateContent?.trim()
+
+  if (!name) {
+    throw new Error("Template name is required")
+  }
+
+  if (!templateContent) {
+    throw new Error("Template content is required")
+  }
+
+  return { appId, name, templateContent }
+}
+
+function parseRunConfigInput(input: {
+  appId?: number | string
+  command?: string
+}) {
+  const { appId } = parseAppId(input)
+  const command = input.command?.trim()
+
+  if (!command) {
+    throw new Error("Run command is required")
+  }
+
+  return { appId, command }
+}
+
 export const listWorkspacesFn = createServerFn({ method: "GET" }).handler(
   async () => {
     const { listWorkspaces } = await import("./services/workspaces.server")
@@ -82,4 +156,103 @@ export const createAppFn = createServerFn({ method: "POST" })
     const { createApp } = await import("./services/apps.server")
 
     return createApp(data)
+  })
+
+export const getAppFn = createServerFn({ method: "GET" })
+  .validator(parseAppId)
+  .handler(async ({ data }) => {
+    const { getApp } = await import("./services/apps.server")
+
+    return getApp(data.appId)
+  })
+
+export const createVariableConfigFn = createServerFn({ method: "POST" })
+  .validator(parseVariableConfigInput)
+  .handler(async ({ data }) => {
+    const { createVariableConfig } =
+      await import("./services/variable-configs.server")
+
+    return createVariableConfig(data)
+  })
+
+export const updateVariableConfigFn = createServerFn({ method: "POST" })
+  .validator(
+    (input: {
+      id?: number | string
+      appId?: number | string
+      name?: string
+      value?: string
+    }) => ({
+      ...parseConfigId(input),
+      ...parseVariableConfigInput(input),
+    })
+  )
+  .handler(async ({ data }) => {
+    const { updateVariableConfig } =
+      await import("./services/variable-configs.server")
+
+    return updateVariableConfig(data.id, {
+      appId: data.appId,
+      name: data.name,
+      value: data.value,
+    })
+  })
+
+export const deleteVariableConfigFn = createServerFn({ method: "POST" })
+  .validator(parseConfigId)
+  .handler(async ({ data }) => {
+    const { deleteVariableConfig } =
+      await import("./services/variable-configs.server")
+
+    return deleteVariableConfig(data.id)
+  })
+
+export const createTemplateConfigFn = createServerFn({ method: "POST" })
+  .validator(parseTemplateConfigInput)
+  .handler(async ({ data }) => {
+    const { createTemplateConfig } =
+      await import("./services/template-configs.server")
+
+    return createTemplateConfig(data)
+  })
+
+export const updateTemplateConfigFn = createServerFn({ method: "POST" })
+  .validator(
+    (input: {
+      id?: number | string
+      appId?: number | string
+      name?: string
+      templateContent?: string
+    }) => ({
+      ...parseConfigId(input),
+      ...parseTemplateConfigInput(input),
+    })
+  )
+  .handler(async ({ data }) => {
+    const { updateTemplateConfig } =
+      await import("./services/template-configs.server")
+
+    return updateTemplateConfig(data.id, {
+      appId: data.appId,
+      name: data.name,
+      templateContent: data.templateContent,
+    })
+  })
+
+export const deleteTemplateConfigFn = createServerFn({ method: "POST" })
+  .validator(parseConfigId)
+  .handler(async ({ data }) => {
+    const { deleteTemplateConfig } =
+      await import("./services/template-configs.server")
+
+    return deleteTemplateConfig(data.id)
+  })
+
+export const upsertRunConfigFn = createServerFn({ method: "POST" })
+  .validator(parseRunConfigInput)
+  .handler(async ({ data }) => {
+    const { upsertRunConfigForApp } =
+      await import("./services/run-configs.server")
+
+    return upsertRunConfigForApp(data.appId, { command: data.command })
   })

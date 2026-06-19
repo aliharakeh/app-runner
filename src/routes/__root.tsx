@@ -201,13 +201,13 @@ function AppLayout() {
             </div>
             <label className="relative block px-3">
               <span className="sr-only">Search workspaces and apps</span>
-              <Search className="pointer-events-none absolute left-5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Search className="pointer-events-none absolute top-1/2 left-5 size-3.5 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="search"
                 value={searchQuery}
                 placeholder="Search workspaces or apps"
                 onChange={(event) => setSearchQuery(event.target.value)}
-                className="h-8 w-full rounded-md border border-input bg-background pl-8 pr-2 text-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="h-8 w-full rounded-md border border-input bg-background pr-2 pl-8 text-sm transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               />
             </label>
             <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
@@ -225,7 +225,8 @@ function AppLayout() {
                         params={{ workspaceId: String(workspace.id) }}
                         className="flex min-w-0 flex-1 items-center gap-1 self-stretch"
                         activeProps={{
-                          className: "font-medium text-sidebar-accent-foreground",
+                          className:
+                            "font-medium text-sidebar-accent-foreground",
                         }}
                       >
                         <Folder className="shrink-0 text-muted-foreground" />
@@ -253,13 +254,22 @@ function AppLayout() {
                     {workspace.apps.length ? (
                       <div className="flex flex-col gap-1 pl-7">
                         {workspace.apps.map((app) => (
-                          <button
+                          <Link
                             key={app.id}
-                            type="button"
+                            to="/workspaces/$workspaceId/apps/$appId"
+                            params={{
+                              workspaceId: String(workspace.id),
+                              appId: String(app.id),
+                            }}
+                            search={{ tab: "variables" }}
                             className="flex h-7 items-center rounded-md px-3 text-left text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                            activeProps={{
+                              className:
+                                "bg-sidebar-accent font-medium text-sidebar-accent-foreground",
+                            }}
                           >
                             <span className="truncate">{app.name}</span>
-                          </button>
+                          </Link>
                         ))}
                       </div>
                     ) : (
