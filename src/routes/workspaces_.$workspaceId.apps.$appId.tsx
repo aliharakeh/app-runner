@@ -1,7 +1,20 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { useServerFn } from "@tanstack/react-start"
-import { FileCode, Play, Plus, Settings2, Trash2, Variable } from "lucide-react"
+import { Dialog } from "@base-ui/react/dialog"
+import {
+  ChevronDown,
+  FileCode,
+  Pencil,
+  Play,
+  Plus,
+  Settings2,
+  Trash2,
+  Variable,
+  X,
+} from "lucide-react"
+import Prism from "prismjs"
 import * as React from "react"
+import "prismjs/themes/prism-tomorrow.css"
 
 import { Button } from "@/components/ui/button"
 import { getErrorMessage } from "@/components/workspace-dialogs"
@@ -19,6 +32,14 @@ import { cn } from "@/lib/utils"
 
 const configTabs = ["variables", "template", "run"] as const
 type ConfigTab = (typeof configTabs)[number]
+
+;(globalThis as typeof globalThis & { Prism?: typeof Prism }).Prism = Prism
+await import("prismjs/components/prism-bash")
+await import("prismjs/components/prism-json")
+await import("prismjs/components/prism-yaml")
+await import("prismjs/components/prism-jsx")
+await import("prismjs/components/prism-typescript")
+await import("prismjs/components/prism-tsx")
 
 export const Route = createFileRoute("/workspaces_/$workspaceId/apps/$appId")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -124,7 +145,10 @@ function AppConfigPage() {
     })
   }
 
-  function handleTemplateSubmit(event: React.FormEvent<HTMLFormElement>) {
+  function handleTemplateSubmit(
+    event: React.FormEvent<HTMLFormElement>,
+    onSaved?: () => void
+  ) {
     event.preventDefault()
 
     const form = event.currentTarget
@@ -147,6 +171,7 @@ function AppConfigPage() {
           form.reset()
         }
         await invalidateAfterSave()
+        onSaved?.()
       } catch (saveError) {
         setError(getErrorMessage(saveError))
       }
@@ -398,80 +423,101 @@ function TemplateTab({
   isPending: boolean
   templates: Array<{ id: number; name: string; templateContent: string }>
   onDelete: (id: number) => void
-  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void
+  onSubmit: (
+    event: React.FormEvent<HTMLFormElement>,
+    onSaved?: () => void
+  ) => void
 }) {
+  const [isCreateOpen, setIsCreateOpen] = React.useState(false)
+  const [editingTemplate, setEditingTemplate] = React.useState<{
+    id: number
+    name: string
+    templateContent: string
+  } | null>(null)
+
   return (
     <div className="flex flex-col gap-4">
-      <form
-        className="flex flex-col gap-3 rounded-md border bg-card p-4"
-        onSubmit={onSubmit}
-      >
-        <label className="flex flex-col gap-2 text-sm font-medium">
-          Name
-          <input
-            name="name"
-            required
-            className={inputClassName}
-            placeholder="default"
-          />
-        </label>
-        <label className="flex flex-col gap-2 text-sm font-medium">
-          Template content
-          <textarea
-            name="templateContent"
-            required
-            className={textareaClassName}
-            placeholder="npm run {{script}}"
-          />
-        </label>
-        <Button className="w-fit" type="submit" disabled={isPending}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold">Templates</h2>
+          <p className="text-sm text-muted-foreground">
+            Reusable commands and file templates for this app.
+          </p>
+        </div>
+        <Button
+          className="shrink-0"
+          type="button"
+          disabled={isPending}
+          onClick={() => setIsCreateOpen(true)}
+        >
           <Plus data-icon="inline-start" />
           Add template
         </Button>
-      </form>
+      </div>
+
+      <TemplateDialog
+        isPending={isPending}
+        mode="create"
+        open={isCreateOpen}
+        onOpenChange={setIsCreateOpen}
+        onSubmit={onSubmit}
+      />
+
+      {editingTemplate ? (
+        <TemplateDialog
+          key={editingTemplate.id}
+          isPending={isPending}
+          mode="edit"
+          open
+          template={editingTemplate}
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditingTemplate(null)
+            }
+          }}
+          onSubmit={onSubmit}
+        />
+      ) : null}
 
       {templates.length ? (
         <div className="flex flex-col gap-3">
           {templates.map((template) => (
-            <form
+            <article
               key={template.id}
-              className="flex flex-col gap-3 rounded-md border p-4"
-              onSubmit={onSubmit}
+              className="flex flex-col gap-3 rounded-md border bg-card p-4"
             >
-              <input type="hidden" name="id" value={template.id} />
-              <label className="flex flex-col gap-2 text-sm font-medium">
-                Name
-                <input
-                  name="name"
-                  required
-                  defaultValue={template.name}
-                  className={inputClassName}
-                />
-              </label>
-              <label className="flex flex-col gap-2 text-sm font-medium">
-                Template content
-                <textarea
-                  name="templateContent"
-                  required
-                  defaultValue={template.templateContent}
-                  className={textareaClassName}
-                />
-              </label>
-              <div className="flex flex-wrap gap-2">
-                <Button type="submit" disabled={isPending}>
-                  Save template
-                </Button>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  disabled={isPending}
-                  onClick={() => onDelete(template.id)}
-                >
-                  <Trash2 data-icon="inline-start" />
-                  Delete
-                </Button>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="truncate text-sm font-semibold">
+                    {template.name}
+                  </h3>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isPending}
+                    onClick={() => setEditingTemplate(template)}
+                  >
+                    <Pencil data-icon="inline-start" />
+                    Edit
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    disabled={isPending}
+                    onClick={() => onDelete(template.id)}
+                  >
+                    <Trash2 data-icon="inline-start" />
+                    Delete
+                  </Button>
+                </div>
               </div>
-            </form>
+              <TemplateContentPreview
+                name={template.name}
+                content={template.templateContent}
+              />
+            </article>
           ))}
         </div>
       ) : (
@@ -482,6 +528,176 @@ function TemplateTab({
       )}
     </div>
   )
+}
+
+function TemplateDialog({
+  isPending,
+  mode,
+  open,
+  template,
+  onOpenChange,
+  onSubmit,
+}: {
+  isPending: boolean
+  mode: "create" | "edit"
+  open: boolean
+  template?: { id: number; name: string; templateContent: string }
+  onOpenChange: (open: boolean) => void
+  onSubmit: (
+    event: React.FormEvent<HTMLFormElement>,
+    onSaved?: () => void
+  ) => void
+}) {
+  const [name, setName] = React.useState(template?.name ?? "")
+  const [content, setContent] = React.useState(template?.templateContent ?? "")
+  const title = mode === "create" ? "Add template" : "Edit template"
+  const language = getTemplateLanguage(name, content)
+
+  return (
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Portal>
+        <Dialog.Backdrop className="fixed inset-0 bg-background/80 backdrop-blur-sm" />
+        <Dialog.Popup className="fixed top-1/2 left-1/2 flex max-h-[min(calc(100svh-2rem),46rem)] w-[min(calc(100vw-2rem),48rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-auto rounded-md border bg-popover p-5 text-popover-foreground shadow-lg outline-none">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <Dialog.Title className="text-base font-semibold">
+                {title}
+              </Dialog.Title>
+              <Dialog.Description className="mt-1 text-sm text-muted-foreground">
+                Edit the template content in the highlighted code surface.
+              </Dialog.Description>
+            </div>
+            <Dialog.Close
+              aria-label="Close"
+              className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              type="button"
+            >
+              <X />
+            </Dialog.Close>
+          </div>
+
+          <form
+            className="flex flex-col gap-4"
+            onSubmit={(event) => onSubmit(event, () => onOpenChange(false))}
+          >
+            {template ? (
+              <input type="hidden" name="id" value={template.id} />
+            ) : null}
+            <label className="flex flex-col gap-2 text-sm font-medium">
+              Name
+              <input
+                autoFocus
+                name="name"
+                required
+                value={name}
+                className={inputClassName}
+                placeholder="default"
+                onChange={(event) => setName(event.currentTarget.value)}
+              />
+            </label>
+            <TemplateCodeEditor
+              content={content}
+              language={language}
+              onContentChange={setContent}
+            />
+            <div className="flex justify-end gap-2">
+              <Dialog.Close
+                className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-background px-2.5 text-sm font-medium transition-colors hover:bg-muted"
+                type="button"
+              >
+                Cancel
+              </Dialog.Close>
+              <Button type="submit" disabled={isPending}>
+                {mode === "create" ? "Create template" : "Save template"}
+              </Button>
+            </div>
+          </form>
+        </Dialog.Popup>
+      </Dialog.Portal>
+    </Dialog.Root>
+  )
+}
+
+function TemplateContentPreview({
+  name,
+  content,
+}: {
+  name: string
+  content: string
+}) {
+  const language = getTemplateLanguage(name, content)
+  const highlightedContent = highlightTemplateContent(content, language)
+
+  return (
+    <details className="group rounded-md border">
+      <summary className="flex h-10 cursor-pointer list-none items-center justify-between gap-3 px-3 text-sm font-medium transition-colors hover:bg-muted [&::-webkit-details-marker]:hidden">
+        Template content
+        <ChevronDown className="transition-transform group-open:rotate-180" />
+      </summary>
+      <pre className="max-h-96 overflow-auto border-t bg-[#2d2d2d] p-4 text-sm leading-6">
+        <code
+          className={`language-${language}`}
+          dangerouslySetInnerHTML={{ __html: highlightedContent }}
+        />
+      </pre>
+    </details>
+  )
+}
+
+function TemplateCodeEditor({
+  content,
+  language,
+  onContentChange,
+}: {
+  content: string
+  language: string
+  onContentChange: (content: string) => void
+}) {
+  const previewRef = React.useRef<HTMLPreElement>(null)
+  const highlightedContent = highlightTemplateContent(`${content}\n`, language)
+
+  function handleScroll(event: React.UIEvent<HTMLTextAreaElement>) {
+    const preview = previewRef.current
+    if (!preview) {
+      return
+    }
+
+    preview.scrollTop = event.currentTarget.scrollTop
+    preview.scrollLeft = event.currentTarget.scrollLeft
+  }
+
+  return (
+    <label className="flex flex-col gap-2 text-sm font-medium">
+      Template content
+      <div className="relative min-h-72 rounded-md border bg-[#2d2d2d]">
+        <pre
+          ref={previewRef}
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 overflow-auto p-4 font-mono text-sm leading-6"
+        >
+          <code
+            className={`language-${language}`}
+            dangerouslySetInnerHTML={{ __html: highlightedContent }}
+          />
+        </pre>
+        <textarea
+          aria-label="Template content"
+          className="absolute inset-0 resize-none overflow-auto bg-transparent p-4 font-mono text-sm leading-6 text-transparent caret-white outline-none"
+          name="templateContent"
+          required
+          spellCheck={false}
+          value={content}
+          onChange={(event) => onContentChange(event.currentTarget.value)}
+          onScroll={handleScroll}
+        />
+      </div>
+    </label>
+  )
+}
+
+function highlightTemplateContent(content: string, language: string) {
+  const grammar = Prism.languages[language] ?? Prism.languages.markup
+  return Prism.highlight(content, grammar, language)
 }
 
 function RunTab({
@@ -534,8 +750,52 @@ function isConfigTab(value: unknown): value is ConfigTab {
   return configTabs.includes(value as ConfigTab)
 }
 
+function getTemplateLanguage(name: string, content: string) {
+  const normalizedName = name.toLowerCase()
+  const trimmedContent = content.trimStart()
+
+  if (normalizedName.endsWith(".tsx")) {
+    return "tsx"
+  }
+
+  if (normalizedName.endsWith(".ts")) {
+    return "typescript"
+  }
+
+  if (normalizedName.endsWith(".jsx")) {
+    return "jsx"
+  }
+
+  if (normalizedName.endsWith(".js")) {
+    return "javascript"
+  }
+
+  if (
+    normalizedName.endsWith(".json") ||
+    (trimmedContent.startsWith("{") && trimmedContent.endsWith("}")) ||
+    (trimmedContent.startsWith("[") && trimmedContent.endsWith("]"))
+  ) {
+    return "json"
+  }
+
+  if (normalizedName.endsWith(".yaml") || normalizedName.endsWith(".yml")) {
+    return "yaml"
+  }
+
+  if (normalizedName.endsWith(".css")) {
+    return "css"
+  }
+
+  if (
+    normalizedName.endsWith(".html") ||
+    normalizedName.endsWith(".xml") ||
+    trimmedContent.startsWith("<")
+  ) {
+    return "markup"
+  }
+
+  return "bash"
+}
+
 const inputClassName =
   "h-9 rounded-md border border-input bg-background px-3 text-sm font-normal outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-
-const textareaClassName =
-  "min-h-32 rounded-md border border-input bg-background px-3 py-2 font-mono text-sm font-normal outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
