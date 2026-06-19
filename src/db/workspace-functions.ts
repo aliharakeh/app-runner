@@ -118,6 +118,19 @@ function parseRunConfigInput(input: {
   return { appId, command }
 }
 
+function parseAppIds(input: { appIds?: Array<number | string> }) {
+  const appIds = input.appIds?.map(Number) ?? []
+
+  if (
+    !appIds.length ||
+    appIds.some((appId) => !Number.isInteger(appId) || appId < 1)
+  ) {
+    throw new Error("Apps are required")
+  }
+
+  return { appIds }
+}
+
 export const listWorkspacesFn = createServerFn({ method: "GET" }).handler(
   async () => {
     const { listWorkspaces } = await import("./services/workspaces.server")
@@ -255,4 +268,37 @@ export const upsertRunConfigFn = createServerFn({ method: "POST" })
       await import("./services/run-configs.server")
 
     return upsertRunConfigForApp(data.appId, { command: data.command })
+  })
+
+export const startAppProcessFn = createServerFn({ method: "POST" })
+  .validator(parseAppId)
+  .handler(async ({ data }) => {
+    const { startAppProcess } = await import("@/server/app-processes.server")
+
+    return startAppProcess(data.appId)
+  })
+
+export const stopAppProcessFn = createServerFn({ method: "POST" })
+  .validator(parseAppId)
+  .handler(async ({ data }) => {
+    const { stopAppProcess } = await import("@/server/app-processes.server")
+
+    return stopAppProcess(data.appId)
+  })
+
+export const restartAppProcessFn = createServerFn({ method: "POST" })
+  .validator(parseAppId)
+  .handler(async ({ data }) => {
+    const { restartAppProcess } = await import("@/server/app-processes.server")
+
+    return restartAppProcess(data.appId)
+  })
+
+export const getAppProcessStatusesFn = createServerFn({ method: "GET" })
+  .validator(parseAppIds)
+  .handler(async ({ data }) => {
+    const { getAppProcessStatuses } =
+      await import("@/server/app-processes.server")
+
+    return getAppProcessStatuses(data.appIds)
   })

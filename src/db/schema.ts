@@ -70,6 +70,15 @@ export const runConfigs = sqliteTable(
       .notNull()
       .references(() => apps.id, { onDelete: "cascade" }),
     command: text("command").notNull(),
+    lastRunPid: integer("last_run_pid"),
+    lastRunStatus: text("last_run_status"),
+    lastRunStdout: text("last_run_stdout").notNull().default(""),
+    lastRunStderr: text("last_run_stderr").notNull().default(""),
+    lastRunStartedAt: text("last_run_started_at"),
+    lastRunStoppedAt: text("last_run_stopped_at"),
+    lastRunExitCode: integer("last_run_exit_code"),
+    lastRunSignal: text("last_run_signal"),
+    lastRunError: text("last_run_error"),
     createdAt: text("created_at")
       .notNull()
       .default(sql`CURRENT_TIMESTAMP`),

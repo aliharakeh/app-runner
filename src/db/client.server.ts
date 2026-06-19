@@ -62,6 +62,15 @@ export function ensureDatabaseSchema() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       app_id INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
       command TEXT NOT NULL,
+      last_run_pid INTEGER,
+      last_run_status TEXT,
+      last_run_stdout TEXT NOT NULL DEFAULT '',
+      last_run_stderr TEXT NOT NULL DEFAULT '',
+      last_run_started_at TEXT,
+      last_run_stopped_at TEXT,
+      last_run_exit_code INTEGER,
+      last_run_signal TEXT,
+      last_run_error TEXT,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
@@ -70,5 +79,31 @@ export function ensureDatabaseSchema() {
       ON run_configs(app_id);
   `)
 
+  ensureColumn("run_configs", "last_run_pid", "INTEGER")
+  ensureColumn("run_configs", "last_run_status", "TEXT")
+  ensureColumn("run_configs", "last_run_stdout", "TEXT NOT NULL DEFAULT ''")
+  ensureColumn("run_configs", "last_run_stderr", "TEXT NOT NULL DEFAULT ''")
+  ensureColumn("run_configs", "last_run_started_at", "TEXT")
+  ensureColumn("run_configs", "last_run_stopped_at", "TEXT")
+  ensureColumn("run_configs", "last_run_exit_code", "INTEGER")
+  ensureColumn("run_configs", "last_run_signal", "TEXT")
+  ensureColumn("run_configs", "last_run_error", "TEXT")
+
   schemaReady = true
+}
+
+function ensureColumn(
+  tableName: string,
+  columnName: string,
+  definition: string
+) {
+  const columns = sqlite
+    .prepare(`PRAGMA table_info(${tableName})`)
+    .all() as Array<{ name: string }>
+
+  if (columns.some((column) => column.name === columnName)) {
+    return
+  }
+
+  sqlite.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`)
 }

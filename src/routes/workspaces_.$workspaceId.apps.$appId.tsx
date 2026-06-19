@@ -32,7 +32,17 @@ import { cn } from "@/lib/utils"
 
 const configTabs = ["variables", "template", "run"] as const
 type ConfigTab = (typeof configTabs)[number]
-
+type RunConfigLastRun = {
+  lastRunPid: number | null
+  lastRunStatus: string | null
+  lastRunStdout: string
+  lastRunStderr: string
+  lastRunStartedAt: string | null
+  lastRunStoppedAt: string | null
+  lastRunExitCode: number | null
+  lastRunSignal: string | null
+  lastRunError: string | null
+}
 ;(globalThis as typeof globalThis & { Prism?: typeof Prism }).Prism = Prism
 await import("prismjs/components/prism-bash")
 await import("prismjs/components/prism-json")
@@ -285,6 +295,7 @@ function AppConfigPage() {
         <RunTab
           command={currentApp.runConfig?.command ?? ""}
           isPending={isPending}
+          runConfig={currentApp.runConfig}
           onSubmit={handleRunSubmit}
         />
       ) : null}
@@ -703,31 +714,80 @@ function highlightTemplateContent(content: string, language: string) {
 function RunTab({
   command,
   isPending,
+  runConfig,
   onSubmit,
 }: {
   command: string
   isPending: boolean
+  runConfig: RunConfigLastRun | null
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void
 }) {
+  const lastRunConfig = runConfig?.lastRunStartedAt ? runConfig : null
+
   return (
-    <form
-      className="flex flex-col gap-4 rounded-md border bg-card p-4"
-      onSubmit={onSubmit}
-    >
-      <label className="flex flex-col gap-2 text-sm font-medium">
-        Run command
-        <input
-          name="command"
-          required
-          defaultValue={command}
-          className={inputClassName}
-          placeholder="npm run dev"
-        />
-      </label>
-      <Button className="w-fit" type="submit" disabled={isPending}>
-        Save run config
-      </Button>
-    </form>
+    <div className="flex flex-col gap-4">
+      <form
+        className="flex flex-col gap-4 rounded-md border bg-card p-4"
+        onSubmit={onSubmit}
+      >
+        <label className="flex flex-col gap-2 text-sm font-medium">
+          Run command
+          <input
+            name="command"
+            required
+            defaultValue={command}
+            className={inputClassName}
+            placeholder="npm run dev"
+          />
+        </label>
+        <Button className="w-fit" type="submit" disabled={isPending}>
+          Save run config
+        </Button>
+      </form>
+
+      <section className="flex flex-col gap-4 rounded-md border bg-card p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold">Last run log</h2>
+            <p className="text-sm text-muted-foreground">
+              {lastRunConfig
+                ? formatRunSummary(lastRunConfig)
+                : "No run has been recorded yet."}
+            </p>
+          </div>
+          {lastRunConfig ? (
+            <div className="grid gap-1 text-right text-xs text-muted-foreground">
+              <span>
+                Started {formatDateTime(lastRunConfig.lastRunStartedAt)}
+              </span>
+              <span>
+                Stopped {formatDateTime(lastRunConfig.lastRunStoppedAt)}
+              </span>
+            </div>
+          ) : null}
+        </div>
+
+        {lastRunConfig ? (
+          <div className="grid gap-3 xl:grid-cols-2">
+            <RunLogPanel label="stdout" value={lastRunConfig.lastRunStdout} />
+            <RunLogPanel label="stderr" value={lastRunConfig.lastRunStderr} />
+          </div>
+        ) : null}
+      </section>
+    </div>
+  )
+}
+
+function RunLogPanel({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-md border bg-muted/30">
+      <div className="border-b px-3 py-2 text-sm font-medium text-muted-foreground">
+        {label}
+      </div>
+      <pre className="max-h-[28rem] overflow-auto p-3 font-mono text-sm leading-6 break-words whitespace-pre-wrap">
+        {value.trim() || "No output"}
+      </pre>
+    </div>
   )
 }
 
@@ -748,6 +808,31 @@ function EmptyState({
 
 function isConfigTab(value: unknown): value is ConfigTab {
   return configTabs.includes(value as ConfigTab)
+}
+
+function formatRunSummary(runConfig: RunConfigLastRun) {
+  const parts = [
+    runConfig.lastRunStatus ?? "unknown",
+    runConfig.lastRunPid ? `PID ${runConfig.lastRunPid}` : null,
+    runConfig.lastRunExitCode !== null
+      ? `exit ${runConfig.lastRunExitCode}`
+      : null,
+    runConfig.lastRunSignal ? `signal ${runConfig.lastRunSignal}` : null,
+    runConfig.lastRunError,
+  ].filter(Boolean)
+
+  return parts.join(" - ")
+}
+
+function formatDateTime(value: string | null) {
+  if (!value) {
+    return "not recorded"
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "medium",
+  }).format(new Date(value))
 }
 
 function getTemplateLanguage(name: string, content: string) {

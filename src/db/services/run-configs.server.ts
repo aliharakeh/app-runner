@@ -72,6 +72,36 @@ export async function upsertRunConfigForApp(
   return runConfig
 }
 
+export async function saveRunConfigLastRun(
+  appId: number,
+  input: Pick<
+    NewRunConfig,
+    | "lastRunPid"
+    | "lastRunStatus"
+    | "lastRunStdout"
+    | "lastRunStderr"
+    | "lastRunStartedAt"
+    | "lastRunStoppedAt"
+    | "lastRunExitCode"
+    | "lastRunSignal"
+    | "lastRunError"
+  >
+) {
+  ensureDatabaseSchema()
+
+  const runConfig = db
+    .update(runConfigs)
+    .set({
+      ...input,
+      updatedAt: sql`CURRENT_TIMESTAMP`,
+    })
+    .where(eq(runConfigs.appId, appId))
+    .returning()
+    .get()
+
+  return runConfig
+}
+
 export async function deleteRunConfig(id: number) {
   ensureDatabaseSchema()
 
