@@ -10,7 +10,6 @@ import {
   Plus,
   RefreshCcw,
   Square,
-  Terminal,
   Trash2,
   Variable,
 } from "lucide-react"
@@ -243,19 +242,19 @@ function WorkspaceOverview() {
             return (
               <article
                 key={app.id}
-                className="flex min-h-44 flex-col gap-4 rounded-md border bg-card p-4 text-card-foreground"
+                className="flex min-h-44 flex-col gap-3 rounded-md border bg-card p-4 text-card-foreground"
               >
-                <Link
-                  to="/workspaces/$workspaceId/apps/$appId"
-                  params={{
-                    workspaceId: String(selectedWorkspace.id),
-                    appId: String(app.id),
-                  }}
-                  search={{ tab: "variables" }}
-                  className="-m-2 flex flex-col gap-4 rounded-md p-2 transition-colors hover:bg-muted/40"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                <div className="flex items-start justify-between gap-3">
+                  <Link
+                    to="/workspaces/$workspaceId/apps/$appId"
+                    params={{
+                      workspaceId: String(selectedWorkspace.id),
+                      appId: String(app.id),
+                    }}
+                    search={{ tab: "variables" }}
+                    className="flex min-w-0 flex-1 items-start gap-2 rounded-md transition-colors hover:text-primary"
+                  >
+                    <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
                       <FolderOpen />
                     </div>
                     <div className="min-w-0">
@@ -266,7 +265,30 @@ function WorkspaceOverview() {
                         {app.pathLocation}
                       </p>
                     </div>
-                  </div>
+                  </Link>
+                  <AppLifecycleControls
+                    commandConfigured={Boolean(app.runConfig?.command)}
+                    isPending={isPending}
+                    processStatus={processStatus}
+                    onEdit={() => {
+                      setEditAppError("")
+                      setEditingApp(app)
+                    }}
+                    onRestart={() => handleProcessAction("restart", app.id)}
+                    onStart={() => handleProcessAction("start", app.id)}
+                    onStop={() => handleProcessAction("stop", app.id)}
+                  />
+                </div>
+
+                <Link
+                  to="/workspaces/$workspaceId/apps/$appId"
+                  params={{
+                    workspaceId: String(selectedWorkspace.id),
+                    appId: String(app.id),
+                  }}
+                  search={{ tab: "variables" }}
+                  className="-mx-2 flex flex-1 flex-col rounded-md px-2 py-1 transition-colors hover:bg-muted/40"
+                >
                   <dl className="grid gap-3 text-sm">
                     <ConfigStat
                       icon={<Variable />}
@@ -290,19 +312,6 @@ function WorkspaceOverview() {
                     />
                   </dl>
                 </Link>
-
-                <AppLifecycleControls
-                  commandConfigured={Boolean(app.runConfig?.command)}
-                  isPending={isPending}
-                  processStatus={processStatus}
-                  onEdit={() => {
-                    setEditAppError("")
-                    setEditingApp(app)
-                  }}
-                  onRestart={() => handleProcessAction("restart", app.id)}
-                  onStart={() => handleProcessAction("start", app.id)}
-                  onStop={() => handleProcessAction("stop", app.id)}
-                />
               </article>
             )
           })}
@@ -403,69 +412,50 @@ function AppLifecycleControls({
   const isRunning = processStatus.status === "running"
 
   return (
-    <div className="mt-auto flex flex-col gap-3 border-t pt-3">
-      <div className="flex flex-wrap gap-2">
-        <Button
-          type="button"
-          size="sm"
-          disabled={isPending || isRunning || !commandConfigured}
-          onClick={onStart}
-        >
-          <Play data-icon="inline-start" />
-          Run
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={isPending || isRunning}
-          onClick={onEdit}
-        >
-          <Pencil data-icon="inline-start" />
-          Edit
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={isPending || !isRunning}
-          onClick={onStop}
-        >
-          <Square data-icon="inline-start" />
-          Stop
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={isPending || !commandConfigured}
-          onClick={onRestart}
-        >
-          <RefreshCcw data-icon="inline-start" />
-          Restart
-        </Button>
-      </div>
-      <div className="grid gap-2 text-xs">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Terminal />
-          <span>PID {processStatus.pid ?? "not running"}</span>
-        </div>
-        <ProcessLog label="stdout" value={processStatus.stdout} />
-        <ProcessLog label="stderr" value={processStatus.stderr} />
-      </div>
-    </div>
-  )
-}
-
-function ProcessLog({ label, value }: { label: string; value: string }) {
-  const preview = getLogPreview(value)
-
-  return (
-    <div className="min-w-0 rounded-md border bg-muted/30 p-2">
-      <div className="mb-1 font-medium text-muted-foreground">{label}</div>
-      <pre className="max-h-20 overflow-auto font-mono text-[0.75rem] leading-5 break-words whitespace-pre-wrap">
-        {preview || "No output"}
-      </pre>
+    <div className="flex shrink-0 items-center gap-1">
+      <Button
+        type="button"
+        size="icon-xs"
+        aria-label="Run app"
+        title="Run"
+        disabled={isPending || isRunning || !commandConfigured}
+        onClick={onStart}
+      >
+        <Play />
+      </Button>
+      <Button
+        type="button"
+        size="icon-xs"
+        variant="outline"
+        aria-label="Stop app"
+        title="Stop"
+        disabled={isPending || !isRunning}
+        onClick={onStop}
+      >
+        <Square />
+      </Button>
+      <Button
+        type="button"
+        size="icon-xs"
+        variant="outline"
+        aria-label="Restart app"
+        title="Restart"
+        disabled={isPending || !commandConfigured}
+        onClick={onRestart}
+      >
+        <RefreshCcw />
+      </Button>
+      <Button
+        type="button"
+        size="icon-xs"
+        variant="outline"
+        aria-label="Edit app"
+        title="Edit"
+        disabled={isPending || isRunning}
+        onClick={onEdit}
+      >
+        <Pencil />
+      </Button>
     </div>
   )
 }
@@ -481,7 +471,7 @@ function ConfigStat({
 }) {
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+      <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground [&_svg]:size-3.5">
         {icon}
       </div>
       <dt className="shrink-0 text-muted-foreground">{label}</dt>
@@ -498,10 +488,6 @@ function formatProcessStatus(status: { pid: number | null; status: string }) {
   }
 
   return status.status
-}
-
-function getLogPreview(value: string) {
-  return value.trim().split(/\r?\n/).slice(-4).join("\n")
 }
 
 function DeleteWorkspaceDialog({
