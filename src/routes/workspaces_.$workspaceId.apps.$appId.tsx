@@ -7,7 +7,9 @@ import {
   Pencil,
   Play,
   Plus,
+  RefreshCcw,
   Settings2,
+  Square,
   Trash2,
   Variable,
   X,
@@ -23,7 +25,11 @@ import {
   createVariableConfigFn,
   deleteTemplateConfigFn,
   deleteVariableConfigFn,
+  getAppProcessStatusesFn,
   getAppFn,
+  restartAppProcessFn,
+  startAppProcessFn,
+  stopAppProcessFn,
   updateTemplateConfigFn,
   updateAppFn,
   updateVariableConfigFn,
@@ -44,6 +50,19 @@ type RunConfigLastRun = {
   lastRunSignal: string | null
   lastRunError: string | null
 }
+type AppProcessSnapshot = {
+  appId: number
+  command: string
+  pid: number | null
+  status: string
+  stdout: string
+  stderr: string
+  startedAt: string | null
+  stoppedAt: string | null
+  exitCode: number | null
+  signal: string | null
+  error: string | null
+}
 ;(globalThis as typeof globalThis & { Prism?: typeof Prism }).Prism = Prism
 await import("prismjs/components/prism-bash")
 await import("prismjs/components/prism-json")
@@ -56,11 +75,22 @@ export const Route = createFileRoute("/workspaces_/$workspaceId/apps/$appId")({
   validateSearch: (search: Record<string, unknown>) => ({
     tab: isConfigTab(search.tab) ? search.tab : "variables",
   }),
-  loader: async ({ params }) => ({
-    app: await getAppFn({
-      data: { appId: params.appId },
-    }),
-  }),
+  loader: async ({ params }) => {
+    const [app, processStatuses] = await Promise.all([
+      getAppFn({
+        data: { appId: params.appId },
+      }),
+      getAppProcessStatusesFn({
+        data: { appIds: [params.appId] },
+      }),
+    ])
+    const processStatus = Object.values(processStatuses)[0]
+
+    return {
+      app,
+      processStatus,
+    }
+  },
   component: AppConfigPage,
 })
 
@@ -69,7 +99,7 @@ function AppConfigPage() {
   const navigate = Route.useNavigate()
   const { workspaceId, appId } = Route.useParams()
   const { tab } = Route.useSearch()
-  const { app } = Route.useLoaderData()
+  const { app, processStatus } = Route.useLoaderData()
   const createVariableConfig = useServerFn(createVariableConfigFn)
   const updateVariableConfig = useServerFn(updateVariableConfigFn)
   const deleteVariableConfig = useServerFn(deleteVariableConfigFn)
@@ -78,6 +108,9 @@ function AppConfigPage() {
   const updateTemplateConfig = useServerFn(updateTemplateConfigFn)
   const deleteTemplateConfig = useServerFn(deleteTemplateConfigFn)
   const upsertRunConfig = useServerFn(upsertRunConfigFn)
+  const startAppProcess = useServerFn(startAppProcessFn)
+  const stopAppProcess = useServerFn(stopAppProcessFn)
+  const restartAppProcess = useServerFn(restartAppProcessFn)
   const [isPending, startTransition] = React.useTransition()
   const [error, setError] = React.useState("")
   const [editAppOpen, setEditAppOpen] = React.useState(false)
@@ -89,6 +122,19 @@ function AppConfigPage() {
     app && app.workspaceId === routeWorkspaceId && app.id === routeAppId
       ? app
       : null
+  const isProcessRunning = processStatus.status === "running"
+
+  React.useEffect(() => {
+    if (!isProcessRunning) {
+      return
+    }
+
+    const intervalId = window.setInterval(() => {
+      void router.invalidate()
+    }, 2000)
+
+    return () => window.clearInterval(intervalId)
+  }, [isProcessRunning, router])
 
   if (!selectedApp) {
     return (
@@ -249,6 +295,24 @@ function AppConfigPage() {
     })
   }
 
+  function handleProcessAction(action: "start" | "stop" | "restart") {
+    startTransition(async () => {
+      try {
+        setError("")
+        if (action === "start") {
+          await startAppProcess({ data: { appId: currentApp.id } })
+        } else if (action === "stop") {
+          await stopAppProcess({ data: { appId: currentApp.id } })
+        } else {
+          await restartAppProcess({ data: { appId: currentApp.id } })
+        }
+        await invalidateAfterSave()
+      } catch (processError) {
+        setError(getErrorMessage(processError))
+      }
+    })
+  }
+
   return (
     <section className="flex min-h-svh flex-col gap-6 p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -353,7 +417,11 @@ function AppConfigPage() {
         <RunTab
           command={currentApp.runConfig?.command ?? ""}
           isPending={isPending}
+          processStatus={processStatus}
           runConfig={currentApp.runConfig}
+          onRestart={() => handleProcessAction("restart")}
+          onStart={() => handleProcessAction("start")}
+          onStop={() => handleProcessAction("stop")}
           onSubmit={handleRunSubmit}
         />
       ) : null}
@@ -772,12 +840,20 @@ function highlightTemplateContent(content: string, language: string) {
 function RunTab({
   command,
   isPending,
+  processStatus,
   runConfig,
+  onRestart,
+  onStart,
+  onStop,
   onSubmit,
 }: {
   command: string
   isPending: boolean
+  processStatus: AppProcessSnapshot
   runConfig: RunConfigLastRun | null
+  onRestart: () => void
+  onStart: () => void
+  onStop: () => void
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void
 }) {
   const lastRunConfig = runConfig?.lastRunStartedAt ? runConfig : null
@@ -788,19 +864,34 @@ function RunTab({
         className="flex flex-col gap-4 rounded-md border bg-card p-4"
         onSubmit={onSubmit}
       >
-        <label className="flex flex-col gap-2 text-sm font-medium">
-          Run command
-          <input
-            name="command"
-            required
-            defaultValue={command}
-            className={inputClassName}
-            placeholder="npm run dev"
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <label className="flex min-w-60 flex-1 flex-col gap-2 text-sm font-medium">
+            Run command
+            <input
+              name="command"
+              required
+              defaultValue={command}
+              className={inputClassName}
+              placeholder="npm run dev"
+            />
+          </label>
+          <RunLifecycleControls
+            commandConfigured={Boolean(command)}
+            isPending={isPending}
+            processStatus={processStatus}
+            onRestart={onRestart}
+            onStart={onStart}
+            onStop={onStop}
           />
-        </label>
-        <Button className="w-fit" type="submit" disabled={isPending}>
-          Save run config
-        </Button>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            Status: {formatProcessStatus(processStatus)}
+          </p>
+          <Button className="w-fit" type="submit" disabled={isPending}>
+            Save run config
+          </Button>
+        </div>
       </form>
 
       <section className="flex flex-col gap-4 rounded-md border bg-card p-4">
@@ -832,6 +923,61 @@ function RunTab({
           </div>
         ) : null}
       </section>
+    </div>
+  )
+}
+
+function RunLifecycleControls({
+  commandConfigured,
+  isPending,
+  processStatus,
+  onRestart,
+  onStart,
+  onStop,
+}: {
+  commandConfigured: boolean
+  isPending: boolean
+  processStatus: AppProcessSnapshot
+  onRestart: () => void
+  onStart: () => void
+  onStop: () => void
+}) {
+  const isRunning = processStatus.status === "running"
+
+  return (
+    <div className="flex shrink-0 items-center gap-1">
+      <Button
+        type="button"
+        size="icon-sm"
+        aria-label="Run app"
+        title="Run"
+        disabled={isPending || isRunning || !commandConfigured}
+        onClick={onStart}
+      >
+        <Play />
+      </Button>
+      <Button
+        type="button"
+        size="icon-sm"
+        variant="outline"
+        aria-label="Stop app"
+        title="Stop"
+        disabled={isPending || !isRunning}
+        onClick={onStop}
+      >
+        <Square />
+      </Button>
+      <Button
+        type="button"
+        size="icon-sm"
+        variant="outline"
+        aria-label="Restart app"
+        title="Restart"
+        disabled={isPending || !commandConfigured}
+        onClick={onRestart}
+      >
+        <RefreshCcw />
+      </Button>
     </div>
   )
 }
@@ -891,6 +1037,14 @@ function formatDateTime(value: string | null) {
     dateStyle: "medium",
     timeStyle: "medium",
   }).format(new Date(value))
+}
+
+function formatProcessStatus(status: { pid: number | null; status: string }) {
+  if (status.status === "running" && status.pid) {
+    return `Running (${status.pid})`
+  }
+
+  return status.status
 }
 
 function getTemplateLanguage(name: string, content: string) {
