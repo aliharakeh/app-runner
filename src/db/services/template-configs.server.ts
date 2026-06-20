@@ -7,7 +7,7 @@ import { templateConfigs } from "../schema"
 import type { NewTemplateConfig } from "../schema"
 
 export async function createTemplateConfig(
-  input: Pick<NewTemplateConfig, "appId" | "name" | "templateContent">
+  input: Pick<NewTemplateConfig, "appId" | "filePath" | "templateContent">
 ) {
   ensureDatabaseSchema()
 
@@ -24,7 +24,7 @@ export async function listTemplateConfigs(appId: number) {
 
   return db.query.templateConfigs.findMany({
     where: eq(templateConfigs.appId, appId),
-    orderBy: [asc(templateConfigs.name)],
+    orderBy: [asc(templateConfigs.filePath)],
   })
 }
 
@@ -38,7 +38,9 @@ export async function getTemplateConfig(id: number) {
 
 export async function updateTemplateConfig(
   id: number,
-  input: Partial<Pick<NewTemplateConfig, "appId" | "name" | "templateContent">>
+  input: Partial<
+    Pick<NewTemplateConfig, "appId" | "filePath" | "templateContent">
+  >
 ) {
   ensureDatabaseSchema()
 

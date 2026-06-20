@@ -29,6 +29,7 @@ import {
   deleteVariableConfigFn,
   getAppProcessStatusesFn,
   getAppFn,
+  listAppFilesFn,
   restartAppProcessFn,
   startAppProcessFn,
   stopAppProcessFn,
@@ -78,18 +79,22 @@ export const Route = createFileRoute("/workspaces_/$workspaceId/apps/$appId")({
     tab: isConfigTab(search.tab) ? search.tab : "variables",
   }),
   loader: async ({ params }) => {
-    const [app, processStatuses] = await Promise.all([
+    const [app, processStatuses, appFiles] = await Promise.all([
       getAppFn({
         data: { appId: params.appId },
       }),
       getAppProcessStatusesFn({
         data: { appIds: [params.appId] },
       }),
+      listAppFilesFn({
+        data: { appId: params.appId },
+      }),
     ])
     const processStatus = Object.values(processStatuses)[0]
 
     return {
       app,
+      appFiles,
       processStatus,
     }
   },
@@ -101,7 +106,7 @@ function AppConfigPage() {
   const navigate = Route.useNavigate()
   const { workspaceId, appId } = Route.useParams()
   const { tab } = Route.useSearch()
-  const { app, processStatus } = Route.useLoaderData()
+  const { app, appFiles, processStatus } = Route.useLoaderData()
   const createVariableConfig = useServerFn(createVariableConfigFn)
   const updateVariableConfig = useServerFn(updateVariableConfigFn)
   const deleteVariableConfig = useServerFn(deleteVariableConfigFn)
@@ -242,7 +247,7 @@ function AppConfigPage() {
     const form = event.currentTarget
     const formData = new FormData(form)
     const id = String(formData.get("id") ?? "")
-    const name = String(formData.get("name") ?? "")
+    const filePath = String(formData.get("filePath") ?? "")
     const templateContent = String(formData.get("templateContent") ?? "")
 
     startTransition(async () => {
@@ -250,11 +255,11 @@ function AppConfigPage() {
         setError("")
         if (id) {
           await updateTemplateConfig({
-            data: { id, appId: currentApp.id, name, templateContent },
+            data: { id, appId: currentApp.id, filePath, templateContent },
           })
         } else {
           await createTemplateConfig({
-            data: { appId: currentApp.id, name, templateContent },
+            data: { appId: currentApp.id, filePath, templateContent },
           })
           form.reset()
         }
@@ -409,6 +414,7 @@ function AppConfigPage() {
       ) : null}
       {tab === "template" ? (
         <TemplateTab
+          appFiles={appFiles}
           isPending={isPending}
           templates={currentApp.templateConfigs}
           onDelete={handleDeleteTemplate}
@@ -556,13 +562,15 @@ function VariablesTab({
 }
 
 function TemplateTab({
+  appFiles,
   isPending,
   templates,
   onDelete,
   onSubmit,
 }: {
+  appFiles: Array<string>
   isPending: boolean
-  templates: Array<{ id: number; name: string; templateContent: string }>
+  templates: Array<{ id: number; filePath: string; templateContent: string }>
   onDelete: (id: number) => void
   onSubmit: (
     event: React.FormEvent<HTMLFormElement>,
@@ -572,7 +580,7 @@ function TemplateTab({
   const [isCreateOpen, setIsCreateOpen] = React.useState(false)
   const [editingTemplate, setEditingTemplate] = React.useState<{
     id: number
-    name: string
+    filePath: string
     templateContent: string
   } | null>(null)
 
@@ -597,6 +605,7 @@ function TemplateTab({
       </div>
 
       <TemplateDialog
+        appFiles={appFiles}
         isPending={isPending}
         mode="create"
         open={isCreateOpen}
@@ -608,6 +617,7 @@ function TemplateTab({
         <TemplateDialog
           key={editingTemplate.id}
           isPending={isPending}
+          appFiles={appFiles}
           mode="edit"
           open
           template={editingTemplate}
@@ -630,7 +640,7 @@ function TemplateTab({
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h3 className="truncate text-sm font-semibold">
-                    {template.name}
+                    {template.filePath}
                   </h3>
                 </div>
                 <div className="flex shrink-0 gap-2">
@@ -655,7 +665,7 @@ function TemplateTab({
                 </div>
               </div>
               <TemplateContentPreview
-                name={template.name}
+                filePath={template.filePath}
                 content={template.templateContent}
               />
             </article>
@@ -672,6 +682,7 @@ function TemplateTab({
 }
 
 function TemplateDialog({
+  appFiles,
   isPending,
   mode,
   open,
@@ -679,20 +690,21 @@ function TemplateDialog({
   onOpenChange,
   onSubmit,
 }: {
+  appFiles: Array<string>
   isPending: boolean
   mode: "create" | "edit"
   open: boolean
-  template?: { id: number; name: string; templateContent: string }
+  template?: { id: number; filePath: string; templateContent: string }
   onOpenChange: (open: boolean) => void
   onSubmit: (
     event: React.FormEvent<HTMLFormElement>,
     onSaved?: () => void
   ) => void
 }) {
-  const [name, setName] = React.useState(template?.name ?? "")
+  const [filePath, setFilePath] = React.useState(template?.filePath ?? "")
   const [content, setContent] = React.useState(template?.templateContent ?? "")
   const title = mode === "create" ? "Add template" : "Edit template"
-  const language = getTemplateLanguage(name, content)
+  const language = getTemplateLanguage(filePath, content)
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -725,16 +737,22 @@ function TemplateDialog({
               <input type="hidden" name="id" value={template.id} />
             ) : null}
             <label className="flex flex-col gap-2 text-sm font-medium">
-              Name
+              Replaced file path
               <input
                 autoFocus
-                name="name"
+                name="filePath"
                 required
-                value={name}
+                value={filePath}
+                list="template-file-paths"
                 className={inputClassName}
-                placeholder="default"
-                onChange={(event) => setName(event.currentTarget.value)}
+                placeholder="src/main.tsx"
+                onChange={(event) => setFilePath(event.currentTarget.value)}
               />
+              <datalist id="template-file-paths">
+                {appFiles.map((file) => (
+                  <option key={file} value={file} />
+                ))}
+              </datalist>
             </label>
             <TemplateCodeEditor
               content={content}
@@ -760,13 +778,13 @@ function TemplateDialog({
 }
 
 function TemplateContentPreview({
-  name,
+  filePath,
   content,
 }: {
-  name: string
+  filePath: string
   content: string
 }) {
-  const language = getTemplateLanguage(name, content)
+  const language = getTemplateLanguage(filePath, content)
   const highlightedContent = highlightTemplateContent(content, language)
 
   return (
@@ -857,7 +875,7 @@ function RunTab({
   isPending: boolean
   processStatus: AppProcessSnapshot
   runConfig: RunConfigLastRun | null
-  templates: Array<{ id: number; name: string; templateContent: string }>
+  templates: Array<{ id: number; filePath: string; templateContent: string }>
   variables: Array<{ id: number; name: string; value: string }>
   onRestart: () => void
   onStart: () => void
@@ -962,7 +980,7 @@ function GeneratedFilesDialog({
   onOpenChange,
 }: {
   open: boolean
-  templates: Array<{ id: number; name: string; templateContent: string }>
+  templates: Array<{ id: number; filePath: string; templateContent: string }>
   variables: Array<{ id: number; name: string; value: string }>
   onOpenChange: (open: boolean) => void
 }) {
@@ -1015,12 +1033,12 @@ function GeneratedFilePreview({
 }: {
   template: {
     id: number
-    name: string
+    filePath: string
     content: string
     error: string
   }
 }) {
-  const language = getTemplateLanguage(template.name, template.content)
+  const language = getTemplateLanguage(template.filePath, template.content)
   const highlightedContent = template.error
     ? ""
     : highlightTemplateContent(template.content, language)
@@ -1028,7 +1046,7 @@ function GeneratedFilePreview({
   return (
     <details className="group rounded-md border" open>
       <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-medium transition-colors hover:bg-muted [&::-webkit-details-marker]:hidden">
-        <span className="truncate">{template.name}</span>
+        <span className="truncate">{template.filePath}</span>
         <ChevronDown className="shrink-0 transition-transform group-open:rotate-180" />
       </summary>
       {template.error ? (
@@ -1168,25 +1186,27 @@ function formatProcessStatus(status: { pid: number | null; status: string }) {
 }
 
 function renderGeneratedTemplate(
-  template: { id: number; name: string; templateContent: string },
+  template: { id: number; filePath: string; templateContent: string },
   values: Record<string, string>
 ) {
   try {
-    const renderName = Handlebars.compile(template.name, { noEscape: true })
+    const renderFilePath = Handlebars.compile(template.filePath, {
+      noEscape: true,
+    })
     const renderContent = Handlebars.compile(template.templateContent, {
       noEscape: true,
     })
 
     return {
       id: template.id,
-      name: renderName(values),
+      filePath: renderFilePath(values),
       content: renderContent(values),
       error: "",
     }
   } catch (error) {
     return {
       id: template.id,
-      name: template.name,
+      filePath: template.filePath,
       content: "",
       error: getErrorMessage(error),
     }

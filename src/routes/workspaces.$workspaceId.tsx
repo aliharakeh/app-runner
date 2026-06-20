@@ -23,6 +23,7 @@ import {
 } from "@/components/workspace-dialogs"
 import {
   createAppFn,
+  deleteAppFn,
   deleteWorkspaceFn,
   getAppProcessStatusesFn,
   getWorkspaceFn,
@@ -54,6 +55,7 @@ function WorkspaceOverview() {
   const { processStatuses, workspace } = Route.useLoaderData()
   const createApp = useServerFn(createAppFn)
   const updateApp = useServerFn(updateAppFn)
+  const deleteApp = useServerFn(deleteAppFn)
   const deleteWorkspace = useServerFn(deleteWorkspaceFn)
   const startAppProcess = useServerFn(startAppProcessFn)
   const stopAppProcess = useServerFn(stopAppProcessFn)
@@ -63,9 +65,13 @@ function WorkspaceOverview() {
   const [editingApp, setEditingApp] = React.useState<
     NonNullable<typeof workspace>["apps"][number] | null
   >(null)
+  const [deletingApp, setDeletingApp] = React.useState<
+    NonNullable<typeof workspace>["apps"][number] | null
+  >(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
   const [appError, setAppError] = React.useState("")
   const [editAppError, setEditAppError] = React.useState("")
+  const [deleteAppError, setDeleteAppError] = React.useState("")
   const [deleteError, setDeleteError] = React.useState("")
   const [processError, setProcessError] = React.useState("")
 
@@ -175,6 +181,21 @@ function WorkspaceOverview() {
     })
   }
 
+  function handleDeleteApp() {
+    const appId = deletingApp!.id
+
+    startTransition(async () => {
+      try {
+        setDeleteAppError("")
+        await deleteApp({ data: { appId } })
+        setDeletingApp(null)
+        await router.invalidate()
+      } catch (error) {
+        setDeleteAppError(getErrorMessage(error))
+      }
+    })
+  }
+
   function handleProcessAction(
     action: "start" | "stop" | "restart",
     appId: number
@@ -274,6 +295,10 @@ function WorkspaceOverview() {
                       setEditAppError("")
                       setEditingApp(app)
                     }}
+                    onDelete={() => {
+                      setDeleteAppError("")
+                      setDeletingApp(app)
+                    }}
                     onRestart={() => handleProcessAction("restart", app.id)}
                     onStart={() => handleProcessAction("start", app.id)}
                     onStop={() => handleProcessAction("stop", app.id)}
@@ -368,6 +393,19 @@ function WorkspaceOverview() {
         }}
         onSubmit={handleUpdateApp}
       />
+      <DeleteAppDialog
+        appName={deletingApp?.name ?? ""}
+        error={deleteAppError}
+        isPending={isPending}
+        open={Boolean(deletingApp)}
+        onConfirm={handleDeleteApp}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeletingApp(null)
+            setDeleteAppError("")
+          }
+        }}
+      />
       <DeleteWorkspaceDialog
         error={deleteError}
         isPending={isPending}
@@ -385,6 +423,7 @@ function AppLifecycleControls({
   isPending,
   processStatus,
   onEdit,
+  onDelete,
   onRestart,
   onStart,
   onStop,
@@ -405,6 +444,7 @@ function AppLifecycleControls({
     error: string | null
   }
   onEdit: () => void
+  onDelete: () => void
   onRestart: () => void
   onStart: () => void
   onStop: () => void
@@ -455,6 +495,17 @@ function AppLifecycleControls({
         onClick={onEdit}
       >
         <Pencil />
+      </Button>
+      <Button
+        type="button"
+        size="icon-xs"
+        variant="destructive"
+        aria-label="Delete app"
+        title="Delete"
+        disabled={isPending || isRunning}
+        onClick={onDelete}
+      >
+        <Trash2 />
       </Button>
     </div>
   )
@@ -517,6 +568,61 @@ function DeleteWorkspaceDialog({
             <Dialog.Description className="text-sm text-muted-foreground">
               This will permanently delete {workspaceName} and all apps inside
               it.
+            </Dialog.Description>
+          </div>
+          {error ? (
+            <p className="text-sm text-destructive" role="alert">
+              {error}
+            </p>
+          ) : null}
+          <div className="flex justify-end gap-2">
+            <Dialog.Close
+              className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-background px-2.5 text-sm font-medium transition-colors hover:bg-muted"
+              type="button"
+            >
+              Cancel
+            </Dialog.Close>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={isPending}
+              onClick={onConfirm}
+            >
+              Delete
+            </Button>
+          </div>
+        </Dialog.Popup>
+      </Dialog.Portal>
+    </Dialog.Root>
+  )
+}
+
+function DeleteAppDialog({
+  appName,
+  error,
+  isPending,
+  open,
+  onConfirm,
+  onOpenChange,
+}: {
+  appName: string
+  error: string
+  isPending: boolean
+  open: boolean
+  onConfirm: () => void
+  onOpenChange: (open: boolean) => void
+}) {
+  return (
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Portal>
+        <Dialog.Backdrop className="fixed inset-0 bg-background/80 backdrop-blur-sm" />
+        <Dialog.Popup className="fixed top-1/2 left-1/2 flex w-[min(calc(100vw-2rem),25rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-md border bg-popover p-5 text-popover-foreground shadow-lg outline-none">
+          <div className="flex flex-col gap-2">
+            <Dialog.Title className="text-base font-semibold">
+              Delete app
+            </Dialog.Title>
+            <Dialog.Description className="text-sm text-muted-foreground">
+              This will permanently delete {appName} and its template backups.
             </Dialog.Description>
           </div>
           {error ? (

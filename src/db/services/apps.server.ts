@@ -3,6 +3,7 @@ import "@tanstack/react-start/server-only"
 import { asc, eq, sql } from "drizzle-orm"
 
 import { normalizeAppPathLocation } from "@/server/app-paths.server"
+import { deleteTemplateBackup } from "@/server/template-backups.server"
 
 import { db, ensureDatabaseSchema } from "../client.server"
 import { apps, runConfigs, templateConfigs, variableConfigs } from "../schema"
@@ -35,7 +36,7 @@ export async function listApps(workspaceId: number) {
         orderBy: [asc(variableConfigs.name)],
       },
       templateConfigs: {
-        orderBy: [asc(templateConfigs.name)],
+        orderBy: [asc(templateConfigs.filePath)],
       },
       runConfig: true,
     },
@@ -48,6 +49,7 @@ export async function getApp(id: number) {
   return db.query.apps.findFirst({
     where: eq(apps.id, id),
     with: {
+      workspace: true,
       variableConfigs: true,
       templateConfigs: true,
       runConfig: true,
@@ -82,7 +84,16 @@ export async function updateApp(
 export async function deleteApp(id: number) {
   ensureDatabaseSchema()
 
+  const existingApp = await getApp(id)
   const app = db.delete(apps).where(eq(apps.id, id)).returning().get()
+
+  if (existingApp) {
+    await deleteTemplateBackup({
+      appName: existingApp.name,
+      workspaceName: existingApp.workspace.name,
+    })
+  }
+
   return app
 }
 
@@ -91,7 +102,7 @@ export async function createAppWithConfig(input: {
   name: string
   pathLocation: string
   variables?: Array<{ name: string; value: string }>
-  templates?: Array<{ name: string; templateContent: string }>
+  templates?: Array<{ filePath: string; templateContent: string }>
   runCommand?: string
 }) {
   ensureDatabaseSchema()
@@ -122,7 +133,7 @@ export async function createAppWithConfig(input: {
       transaction.insert(templateConfigs).values(
         input.templates.map((template) => ({
           appId: app.id,
-          name: template.name,
+          filePath: template.filePath,
           templateContent: template.templateContent,
         }))
       )

@@ -52,7 +52,7 @@ export const templateConfigs = sqliteTable("template_configs", {
   appId: integer("app_id")
     .notNull()
     .references(() => apps.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
+  filePath: text("file_path").notNull(),
   templateContent: text("template_content").notNull(),
   createdAt: text("created_at")
     .notNull()

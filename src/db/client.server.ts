@@ -52,7 +52,7 @@ export function ensureDatabaseSchema() {
     CREATE TABLE IF NOT EXISTS template_configs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       app_id INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
-      name TEXT NOT NULL,
+      file_path TEXT NOT NULL,
       template_content TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP

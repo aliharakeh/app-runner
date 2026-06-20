@@ -21,7 +21,7 @@ CREATE UNIQUE INDEX `run_configs_app_id_unique` ON `run_configs` (`app_id`);--> 
 CREATE TABLE `template_configs` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`app_id` integer NOT NULL,
-	`name` text NOT NULL,
+	`file_path` text NOT NULL,
 	`template_content` text NOT NULL,
 	`created_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL,
 	`updated_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL,

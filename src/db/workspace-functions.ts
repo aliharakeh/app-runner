@@ -106,22 +106,22 @@ function parseVariableConfigInput(input: {
 
 function parseTemplateConfigInput(input: {
   appId?: number | string
-  name?: string
+  filePath?: string
   templateContent?: string
 }) {
   const { appId } = parseAppId(input)
-  const name = input.name?.trim()
+  const filePath = input.filePath?.trim()
   const templateContent = input.templateContent?.trim()
 
-  if (!name) {
-    throw new Error("Template name is required")
+  if (!filePath) {
+    throw new Error("Replaced file path is required")
   }
 
   if (!templateContent) {
     throw new Error("Template content is required")
   }
 
-  return { appId, name, templateContent }
+  return { appId, filePath, templateContent }
 }
 
 function parseRunConfigInput(input: {
@@ -202,12 +202,34 @@ export const updateAppFn = createServerFn({ method: "POST" })
     })
   })
 
+export const deleteAppFn = createServerFn({ method: "POST" })
+  .validator(parseAppId)
+  .handler(async ({ data }) => {
+    const { deleteApp } = await import("./services/apps.server")
+
+    return deleteApp(data.appId)
+  })
+
 export const getAppFn = createServerFn({ method: "GET" })
   .validator(parseAppId)
   .handler(async ({ data }) => {
     const { getApp } = await import("./services/apps.server")
 
     return getApp(data.appId)
+  })
+
+export const listAppFilesFn = createServerFn({ method: "GET" })
+  .validator(parseAppId)
+  .handler(async ({ data }) => {
+    const { getApp } = await import("./services/apps.server")
+    const { listAppPathFiles } = await import("@/server/app-paths.server")
+    const app = await getApp(data.appId)
+
+    if (!app) {
+      throw new Error("App not found")
+    }
+
+    return listAppPathFiles(app.pathLocation)
   })
 
 export const createVariableConfigFn = createServerFn({ method: "POST" })
@@ -265,7 +287,7 @@ export const updateTemplateConfigFn = createServerFn({ method: "POST" })
     (input: {
       id?: number | string
       appId?: number | string
-      name?: string
+      filePath?: string
       templateContent?: string
     }) => ({
       ...parseConfigId(input),
@@ -278,7 +300,7 @@ export const updateTemplateConfigFn = createServerFn({ method: "POST" })
 
     return updateTemplateConfig(data.id, {
       appId: data.appId,
-      name: data.name,
+      filePath: data.filePath,
       templateContent: data.templateContent,
     })
   })

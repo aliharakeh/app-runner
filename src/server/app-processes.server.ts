@@ -2,12 +2,15 @@ import "@tanstack/react-start/server-only"
 
 import { spawn } from "node:child_process"
 import type { ChildProcessWithoutNullStreams } from "node:child_process"
+import fs from "node:fs"
+import Handlebars from "handlebars"
 import os from "node:os"
 import path from "node:path"
 
 import { getApp } from "@/db/services/apps.server"
 import { saveRunConfigLastRun } from "@/db/services/run-configs.server"
 import { validateAppPathLocation } from "@/server/app-paths.server"
+import { getTemplateBackupRoot } from "@/server/template-backups.server"
 
 const MAX_LOG_LENGTH = 20_000
 const WINDOWS_SHELL_ENV_KEYS = ["ComSpec", "SystemRoot", "WINDIR"] as const
@@ -29,6 +32,8 @@ export type AppProcessSnapshot = {
 }
 
 type AppProcessRecord = AppProcessSnapshot & {
+  finishPromise: Promise<void> | null
+  mappedFiles: Array<{ backupPath: string; targetPath: string }>
   persistTimer: ReturnType<typeof setTimeout> | null
   process: ChildProcessWithoutNullStreams | null
   requestedStop: boolean
@@ -58,6 +63,7 @@ export async function startAppProcess(appId: number) {
   validateAppPathLocation(app.pathLocation)
 
   const env = buildProcessEnv(app.variableConfigs)
+  const mappedFiles = applyTemplateFiles(app)
   const child = spawn(command, {
     cwd: app.pathLocation,
     env,
@@ -70,6 +76,8 @@ export async function startAppProcess(appId: number) {
     command,
     pid: child.pid ?? null,
     process: child,
+    finishPromise: null,
+    mappedFiles,
     status: "running",
     stdout: "",
     stderr: "",
@@ -96,24 +104,18 @@ export async function startAppProcess(appId: number) {
   })
 
   child.on("error", (error) => {
-    record.status = record.requestedStop ? "stopped" : "error"
-    record.error = error.message
-    record.stoppedAt = new Date().toISOString()
-    record.process = null
-    void persistLastRun(record)
+    void finishRecord(record, {
+      status: record.requestedStop ? "stopped" : "error",
+      error: error.message,
+    })
   })
 
   child.on("exit", (code, signal) => {
-    record.status = record.requestedStop
-      ? "stopped"
-      : code === 0
-        ? "exited"
-        : "error"
-    record.exitCode = code
-    record.signal = signal
-    record.stoppedAt = new Date().toISOString()
-    record.process = null
-    void persistLastRun(record)
+    void finishRecord(record, {
+      status: record.requestedStop ? "stopped" : code === 0 ? "exited" : "error",
+      exitCode: code,
+      signal,
+    })
   })
 
   return toSnapshot(record)
@@ -128,10 +130,7 @@ export async function stopAppProcess(appId: number) {
 
   record.requestedStop = true
   await killProcessTree(record.process)
-  record.status = "stopped"
-  record.stoppedAt = new Date().toISOString()
-  record.process = null
-  await persistLastRun(record)
+  await finishRecord(record, { status: "stopped" })
 
   return toSnapshot(record)
 }
@@ -165,6 +164,42 @@ function appendLog(current: string, next: string) {
   }
 
   return value.slice(value.length - MAX_LOG_LENGTH)
+}
+
+async function finishRecord(
+  record: AppProcessRecord,
+  input: Partial<
+    Pick<AppProcessRecord, "status" | "exitCode" | "signal" | "error">
+  >
+) {
+  if (!record.finishPromise) {
+    record.finishPromise = finishRecordOnce(record, input)
+  }
+
+  await record.finishPromise
+}
+
+async function finishRecordOnce(
+  record: AppProcessRecord,
+  input: Partial<
+    Pick<AppProcessRecord, "status" | "exitCode" | "signal" | "error">
+  >
+) {
+  record.status = input.status ?? record.status
+  record.exitCode = input.exitCode ?? record.exitCode
+  record.signal = input.signal ?? record.signal
+  record.error = input.error ?? record.error
+  record.stoppedAt = new Date().toISOString()
+  record.process = null
+
+  try {
+    await rollbackTemplateFiles(record.mappedFiles)
+  } catch (error) {
+    record.status = "error"
+    record.error = appendError(record.error, getErrorMessage(error))
+  }
+
+  await persistLastRun(record)
 }
 
 function schedulePersistLastRun(record: AppProcessRecord) {
@@ -227,6 +262,75 @@ function createStoppedSnapshot(appId: number): AppProcessSnapshot {
     signal: null,
     error: null,
   }
+}
+
+function applyTemplateFiles(app: NonNullable<Awaited<ReturnType<typeof getApp>>>) {
+  if (!app.templateConfigs.length) {
+    return []
+  }
+
+  const values = Object.fromEntries(
+    app.variableConfigs.map((variable) => [variable.name, variable.value])
+  )
+  const backupRoot = getTemplateBackupRoot({
+    appName: app.name,
+    workspaceName: app.workspace.name,
+  })
+  const mappedFiles: Array<{ backupPath: string; targetPath: string }> = []
+
+  for (const template of app.templateConfigs) {
+    const targetPath = resolveInside(
+      app.pathLocation,
+      Handlebars.compile(template.filePath, { noEscape: true })(values)
+    )
+    const relativePath = path.relative(app.pathLocation, targetPath)
+    const backupPath = path.join(backupRoot, relativePath)
+    const content = Handlebars.compile(template.templateContent, {
+      noEscape: true,
+    })(values)
+
+    if (!fs.existsSync(targetPath) || !fs.statSync(targetPath).isFile()) {
+      throw new Error(`Template target file does not exist: ${relativePath}`)
+    }
+
+    fs.mkdirSync(path.dirname(backupPath), { recursive: true })
+    fs.copyFileSync(targetPath, backupPath)
+    fs.writeFileSync(targetPath, content)
+    mappedFiles.push({ backupPath, targetPath })
+  }
+
+  return mappedFiles
+}
+
+async function rollbackTemplateFiles(
+  mappedFiles: Array<{ backupPath: string; targetPath: string }>
+) {
+  for (const file of mappedFiles) {
+    await fs.promises.copyFile(file.backupPath, file.targetPath)
+  }
+}
+
+function resolveInside(root: string, relativePath: string) {
+  if (path.isAbsolute(relativePath)) {
+    throw new Error(`Template file path must be relative: ${relativePath}`)
+  }
+
+  const resolvedPath = path.resolve(root, relativePath)
+  const relative = path.relative(root, resolvedPath)
+
+  if (relative.startsWith("..") || path.isAbsolute(relative)) {
+    throw new Error(`Template file path escapes app folder: ${relativePath}`)
+  }
+
+  return resolvedPath
+}
+
+function appendError(current: string | null, next: string) {
+  return current ? `${current}\n${next}` : next
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Unknown error"
 }
 
 function buildProcessEnv(
