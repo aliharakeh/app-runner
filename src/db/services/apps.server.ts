@@ -2,6 +2,8 @@ import "@tanstack/react-start/server-only"
 
 import { asc, eq, sql } from "drizzle-orm"
 
+import { normalizeAppPathLocation } from "@/server/app-paths.server"
+
 import { db, ensureDatabaseSchema } from "../client.server"
 import { apps, runConfigs, templateConfigs, variableConfigs } from "../schema"
 import type { NewApp } from "../schema"
@@ -11,7 +13,14 @@ export async function createApp(
 ) {
   ensureDatabaseSchema()
 
-  const app = db.insert(apps).values(input).returning().get()
+  const app = db
+    .insert(apps)
+    .values({
+      ...input,
+      pathLocation: normalizeAppPathLocation(input.pathLocation),
+    })
+    .returning()
+    .get()
   return app
 }
 
@@ -51,11 +60,16 @@ export async function updateApp(
   input: Partial<Pick<NewApp, "workspaceId" | "name" | "pathLocation">>
 ) {
   ensureDatabaseSchema()
+  const pathLocation =
+    input.pathLocation === undefined
+      ? undefined
+      : normalizeAppPathLocation(input.pathLocation)
 
   const app = db
     .update(apps)
     .set({
       ...input,
+      pathLocation,
       updatedAt: sql`CURRENT_TIMESTAMP`,
     })
     .where(eq(apps.id, id))
@@ -81,6 +95,7 @@ export async function createAppWithConfig(input: {
   runCommand?: string
 }) {
   ensureDatabaseSchema()
+  const pathLocation = normalizeAppPathLocation(input.pathLocation)
 
   return db.transaction((transaction) => {
     const app = transaction
@@ -88,7 +103,7 @@ export async function createAppWithConfig(input: {
       .values({
         workspaceId: input.workspaceId,
         name: input.name,
-        pathLocation: input.pathLocation,
+        pathLocation,
       })
       .returning()
       .get()

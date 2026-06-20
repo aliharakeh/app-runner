@@ -3,11 +3,14 @@ import "@tanstack/react-start/server-only"
 import { spawn } from "node:child_process"
 import type { ChildProcessWithoutNullStreams } from "node:child_process"
 import os from "node:os"
+import path from "node:path"
 
 import { getApp } from "@/db/services/apps.server"
 import { saveRunConfigLastRun } from "@/db/services/run-configs.server"
+import { validateAppPathLocation } from "@/server/app-paths.server"
 
 const MAX_LOG_LENGTH = 20_000
+const WINDOWS_SHELL_ENV_KEYS = ["ComSpec", "SystemRoot", "WINDIR"] as const
 
 type AppProcessStatus = "running" | "stopped" | "exited" | "error"
 
@@ -52,15 +55,13 @@ export async function startAppProcess(appId: number) {
     throw new Error("Run command is not configured")
   }
 
+  validateAppPathLocation(app.pathLocation)
+
+  const env = buildProcessEnv(app.variableConfigs)
   const child = spawn(command, {
     cwd: app.pathLocation,
-    env: {
-      ...process.env,
-      ...Object.fromEntries(
-        app.variableConfigs.map((variable) => [variable.name, variable.value])
-      ),
-    },
-    shell: true,
+    env,
+    shell: os.platform() === "win32" ? getWindowsShellPath() : true,
     windowsHide: true,
   })
 
@@ -226,6 +227,59 @@ function createStoppedSnapshot(appId: number): AppProcessSnapshot {
     signal: null,
     error: null,
   }
+}
+
+function buildProcessEnv(
+  variables: Array<{ name: string; value: string }>
+): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...process.env }
+
+  for (const variable of variables) {
+    env[variable.name] = variable.value
+  }
+
+  if (os.platform() === "win32") {
+    for (const key of WINDOWS_SHELL_ENV_KEYS) {
+      deleteEnvKey(env, key)
+      const value = getProcessEnvValue(key)
+
+      if (value) {
+        env[key] = value
+      }
+    }
+
+    env.ComSpec = getWindowsShellPath()
+  }
+
+  return env
+}
+
+function deleteEnvKey(env: NodeJS.ProcessEnv, key: string) {
+  for (const envKey of Object.keys(env)) {
+    if (envKey.toLowerCase() === key.toLowerCase()) {
+      delete env[envKey]
+    }
+  }
+}
+
+function getProcessEnvValue(key: string) {
+  return (
+    process.env[key] ??
+    Object.entries(process.env).find(
+      ([envKey]) => envKey.toLowerCase() === key.toLowerCase()
+    )?.[1]
+  )
+}
+
+function getWindowsShellPath() {
+  return (
+    getProcessEnvValue("ComSpec") ??
+    path.join(
+      getProcessEnvValue("SystemRoot") ?? "C:\\Windows",
+      "System32",
+      "cmd.exe"
+    )
+  )
 }
 
 function killProcessTree(child: ChildProcessWithoutNullStreams) {

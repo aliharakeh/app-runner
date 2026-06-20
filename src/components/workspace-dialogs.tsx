@@ -75,6 +75,69 @@ export function CreateAppDialog({
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void
 }) {
   return (
+    <AppDetailsDialog
+      error={error}
+      isPending={isPending}
+      mode="create"
+      open={open}
+      workspaceName={workspaceName}
+      onOpenChange={onOpenChange}
+      onSubmit={onSubmit}
+    />
+  )
+}
+
+export function EditAppDialog({
+  app,
+  error,
+  isPending,
+  open,
+  onOpenChange,
+  onSubmit,
+}: {
+  app: { id: number; name: string; pathLocation: string } | null
+  error: string
+  isPending: boolean
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void
+}) {
+  return (
+    <AppDetailsDialog
+      key={app?.id ?? "edit-app"}
+      app={app}
+      error={error}
+      isPending={isPending}
+      mode="edit"
+      open={open}
+      onOpenChange={onOpenChange}
+      onSubmit={onSubmit}
+    />
+  )
+}
+
+function AppDetailsDialog({
+  app,
+  error,
+  isPending,
+  mode,
+  open,
+  workspaceName,
+  onOpenChange,
+  onSubmit,
+}: {
+  app?: { id: number; name: string; pathLocation: string } | null
+  error: string
+  isPending: boolean
+  mode: "create" | "edit"
+  open: boolean
+  workspaceName?: string
+  onOpenChange: (open: boolean) => void
+  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void
+}) {
+  const title = mode === "create" ? "New app" : "Edit app"
+
+  return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 bg-background/80 backdrop-blur-sm" />
@@ -82,11 +145,13 @@ export function CreateAppDialog({
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <Dialog.Title className="text-base font-semibold">
-                New app
+                {title}
               </Dialog.Title>
-              <Dialog.Description className="mt-1 truncate text-sm text-muted-foreground">
-                Add to {workspaceName}
-              </Dialog.Description>
+              {mode === "create" ? (
+                <Dialog.Description className="mt-1 truncate text-sm text-muted-foreground">
+                  Add to {workspaceName}
+                </Dialog.Description>
+              ) : null}
             </div>
             <Dialog.Close
               aria-label="Close"
@@ -97,12 +162,14 @@ export function CreateAppDialog({
             </Dialog.Close>
           </div>
           <form className="flex flex-col gap-4" onSubmit={onSubmit}>
+            {app ? <input type="hidden" name="appId" value={app.id} /> : null}
             <label className="flex flex-col gap-2 text-sm font-medium">
               Name
               <input
                 autoFocus
                 name="name"
                 required
+                defaultValue={app?.name}
                 className="h-9 rounded-md border border-input bg-background px-3 text-sm font-normal transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                 placeholder="App name"
               />
@@ -112,6 +179,7 @@ export function CreateAppDialog({
               <input
                 name="pathLocation"
                 required
+                defaultValue={app?.pathLocation}
                 className="h-9 rounded-md border border-input bg-background px-3 text-sm font-normal transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                 placeholder="C:\Workspace\GitHub\my-app"
               />
@@ -129,7 +197,7 @@ export function CreateAppDialog({
                 Cancel
               </Dialog.Close>
               <Button type="submit" disabled={isPending}>
-                Create
+                {mode === "create" ? "Create" : "Save"}
               </Button>
             </div>
           </form>

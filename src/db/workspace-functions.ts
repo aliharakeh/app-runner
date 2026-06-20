@@ -34,6 +34,26 @@ function parseAppInput(input: {
   return { workspaceId, name, pathLocation }
 }
 
+function parseAppUpdateInput(input: {
+  appId?: number | string
+  name?: string
+  pathLocation?: string
+}) {
+  const { appId } = parseAppId(input)
+  const name = input.name?.trim()
+  const pathLocation = input.pathLocation?.trim()
+
+  if (!name) {
+    throw new Error("App name is required")
+  }
+
+  if (!pathLocation) {
+    throw new Error("App path is required")
+  }
+
+  return { appId, name, pathLocation }
+}
+
 function parseWorkspaceId(input: { workspaceId?: number | string }) {
   const workspaceId = Number(input.workspaceId)
 
@@ -169,6 +189,17 @@ export const createAppFn = createServerFn({ method: "POST" })
     const { createApp } = await import("./services/apps.server")
 
     return createApp(data)
+  })
+
+export const updateAppFn = createServerFn({ method: "POST" })
+  .validator(parseAppUpdateInput)
+  .handler(async ({ data }) => {
+    const { updateApp } = await import("./services/apps.server")
+
+    return updateApp(data.appId, {
+      name: data.name,
+      pathLocation: data.pathLocation,
+    })
   })
 
 export const getAppFn = createServerFn({ method: "GET" })

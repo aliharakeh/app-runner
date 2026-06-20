@@ -5,6 +5,7 @@ import {
   Activity,
   FileCode,
   FolderOpen,
+  Pencil,
   Play,
   Plus,
   RefreshCcw,
@@ -18,6 +19,7 @@ import * as React from "react"
 import { Button } from "@/components/ui/button"
 import {
   CreateAppDialog,
+  EditAppDialog,
   getErrorMessage,
 } from "@/components/workspace-dialogs"
 import {
@@ -28,6 +30,7 @@ import {
   restartAppProcessFn,
   startAppProcessFn,
   stopAppProcessFn,
+  updateAppFn,
 } from "@/db/workspace-functions"
 
 export const Route = createFileRoute("/workspaces/$workspaceId")({
@@ -51,14 +54,19 @@ function WorkspaceOverview() {
   const navigate = Route.useNavigate()
   const { processStatuses, workspace } = Route.useLoaderData()
   const createApp = useServerFn(createAppFn)
+  const updateApp = useServerFn(updateAppFn)
   const deleteWorkspace = useServerFn(deleteWorkspaceFn)
   const startAppProcess = useServerFn(startAppProcessFn)
   const stopAppProcess = useServerFn(stopAppProcessFn)
   const restartAppProcess = useServerFn(restartAppProcessFn)
   const [isPending, startTransition] = React.useTransition()
   const [appDialogOpen, setAppDialogOpen] = React.useState(false)
+  const [editingApp, setEditingApp] = React.useState<
+    NonNullable<typeof workspace>["apps"][number] | null
+  >(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
   const [appError, setAppError] = React.useState("")
+  const [editAppError, setEditAppError] = React.useState("")
   const [deleteError, setDeleteError] = React.useState("")
   const [processError, setProcessError] = React.useState("")
 
@@ -119,6 +127,33 @@ function WorkspaceOverview() {
         await router.invalidate()
       } catch (error) {
         setAppError(getErrorMessage(error))
+      }
+    })
+  }
+
+  function handleUpdateApp(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    const form = event.currentTarget
+    const formData = new FormData(form)
+    const appId = Number(formData.get("appId"))
+    const name = String(formData.get("name") ?? "")
+    const pathLocation = String(formData.get("pathLocation") ?? "")
+
+    startTransition(async () => {
+      try {
+        setEditAppError("")
+        await updateApp({
+          data: {
+            appId,
+            name,
+            pathLocation,
+          },
+        })
+        setEditingApp(null)
+        await router.invalidate()
+      } catch (error) {
+        setEditAppError(getErrorMessage(error))
       }
     })
   }
@@ -260,6 +295,10 @@ function WorkspaceOverview() {
                   commandConfigured={Boolean(app.runConfig?.command)}
                   isPending={isPending}
                   processStatus={processStatus}
+                  onEdit={() => {
+                    setEditAppError("")
+                    setEditingApp(app)
+                  }}
                   onRestart={() => handleProcessAction("restart", app.id)}
                   onStart={() => handleProcessAction("start", app.id)}
                   onStop={() => handleProcessAction("stop", app.id)}
@@ -307,6 +346,19 @@ function WorkspaceOverview() {
         onOpenChange={setAppDialogOpen}
         onSubmit={handleCreateApp}
       />
+      <EditAppDialog
+        app={editingApp}
+        error={editAppError}
+        isPending={isPending}
+        open={Boolean(editingApp)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingApp(null)
+            setEditAppError("")
+          }
+        }}
+        onSubmit={handleUpdateApp}
+      />
       <DeleteWorkspaceDialog
         error={deleteError}
         isPending={isPending}
@@ -323,6 +375,7 @@ function AppLifecycleControls({
   commandConfigured,
   isPending,
   processStatus,
+  onEdit,
   onRestart,
   onStart,
   onStop,
@@ -342,6 +395,7 @@ function AppLifecycleControls({
     signal: string | null
     error: string | null
   }
+  onEdit: () => void
   onRestart: () => void
   onStart: () => void
   onStop: () => void
@@ -359,6 +413,16 @@ function AppLifecycleControls({
         >
           <Play data-icon="inline-start" />
           Run
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={isPending || isRunning}
+          onClick={onEdit}
+        >
+          <Pencil data-icon="inline-start" />
+          Edit
         </Button>
         <Button
           type="button"

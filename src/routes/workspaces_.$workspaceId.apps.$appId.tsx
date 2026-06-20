@@ -17,7 +17,7 @@ import * as React from "react"
 import "prismjs/themes/prism-tomorrow.css"
 
 import { Button } from "@/components/ui/button"
-import { getErrorMessage } from "@/components/workspace-dialogs"
+import { EditAppDialog, getErrorMessage } from "@/components/workspace-dialogs"
 import {
   createTemplateConfigFn,
   createVariableConfigFn,
@@ -25,6 +25,7 @@ import {
   deleteVariableConfigFn,
   getAppFn,
   updateTemplateConfigFn,
+  updateAppFn,
   updateVariableConfigFn,
   upsertRunConfigFn,
 } from "@/db/workspace-functions"
@@ -72,12 +73,15 @@ function AppConfigPage() {
   const createVariableConfig = useServerFn(createVariableConfigFn)
   const updateVariableConfig = useServerFn(updateVariableConfigFn)
   const deleteVariableConfig = useServerFn(deleteVariableConfigFn)
+  const updateApp = useServerFn(updateAppFn)
   const createTemplateConfig = useServerFn(createTemplateConfigFn)
   const updateTemplateConfig = useServerFn(updateTemplateConfigFn)
   const deleteTemplateConfig = useServerFn(deleteTemplateConfigFn)
   const upsertRunConfig = useServerFn(upsertRunConfigFn)
   const [isPending, startTransition] = React.useTransition()
   const [error, setError] = React.useState("")
+  const [editAppOpen, setEditAppOpen] = React.useState(false)
+  const [editAppError, setEditAppError] = React.useState("")
 
   const routeWorkspaceId = Number(workspaceId)
   const routeAppId = Number(appId)
@@ -139,6 +143,32 @@ function AppConfigPage() {
         await invalidateAfterSave()
       } catch (saveError) {
         setError(getErrorMessage(saveError))
+      }
+    })
+  }
+
+  function handleAppSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    const formData = new FormData(event.currentTarget)
+    const submittedAppId = Number(formData.get("appId"))
+    const name = String(formData.get("name") ?? "")
+    const pathLocation = String(formData.get("pathLocation") ?? "")
+
+    startTransition(async () => {
+      try {
+        setEditAppError("")
+        await updateApp({
+          data: {
+            appId: submittedAppId,
+            name,
+            pathLocation,
+          },
+        })
+        setEditAppOpen(false)
+        await invalidateAfterSave()
+      } catch (saveError) {
+        setEditAppError(getErrorMessage(saveError))
       }
     })
   }
@@ -234,19 +264,47 @@ function AppConfigPage() {
             {currentApp.pathLocation}
           </p>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() =>
-            navigate({
-              to: "/workspaces/$workspaceId",
-              params: { workspaceId },
-            })
-          }
-        >
-          Back to workspace
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isPending}
+            onClick={() => {
+              setEditAppError("")
+              setEditAppOpen(true)
+            }}
+          >
+            <Pencil data-icon="inline-start" />
+            Edit
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() =>
+              navigate({
+                to: "/workspaces/$workspaceId",
+                params: { workspaceId },
+              })
+            }
+          >
+            Back to workspace
+          </Button>
+        </div>
       </div>
+
+      <EditAppDialog
+        app={currentApp}
+        error={editAppError}
+        isPending={isPending}
+        open={editAppOpen}
+        onOpenChange={(open) => {
+          setEditAppOpen(open)
+          if (!open) {
+            setEditAppError("")
+          }
+        }}
+        onSubmit={handleAppSubmit}
+      />
 
       <div className="flex flex-wrap gap-2 border-b">
         <TabButton
