@@ -33,7 +33,7 @@ export async function listApps(workspaceId: number) {
     orderBy: [asc(apps.name)],
     with: {
       variableConfigs: {
-        orderBy: [asc(variableConfigs.name)],
+        orderBy: [asc(variableConfigs.setName), asc(variableConfigs.name)],
       },
       templateConfigs: {
         orderBy: [asc(templateConfigs.filePath)],
@@ -59,7 +59,9 @@ export async function getApp(id: number) {
 
 export async function updateApp(
   id: number,
-  input: Partial<Pick<NewApp, "workspaceId" | "name" | "pathLocation">>
+  input: Partial<
+    Pick<NewApp, "workspaceId" | "name" | "pathLocation" | "activeVariableSet">
+  >
 ) {
   ensureDatabaseSchema()
   const pathLocation =
@@ -123,6 +125,7 @@ export async function createAppWithConfig(input: {
       transaction.insert(variableConfigs).values(
         input.variables.map((variable) => ({
           appId: app.id,
+          setName: "default",
           name: variable.name,
           value: variable.value,
         }))

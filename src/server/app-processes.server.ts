@@ -62,7 +62,8 @@ export async function startAppProcess(appId: number) {
 
   validateAppPathLocation(app.pathLocation)
 
-  const env = buildProcessEnv(app.variableConfigs)
+  const variableConfigs = getActiveVariableConfigs(app)
+  const env = buildProcessEnv(variableConfigs)
   const mappedFiles = applyTemplateFiles(app)
   const child = spawn(command, {
     cwd: app.pathLocation,
@@ -270,7 +271,10 @@ function applyTemplateFiles(app: NonNullable<Awaited<ReturnType<typeof getApp>>>
   }
 
   const values = Object.fromEntries(
-    app.variableConfigs.map((variable) => [variable.name, variable.value])
+    getActiveVariableConfigs(app).map((variable) => [
+      variable.name,
+      variable.value,
+    ])
   )
   const backupRoot = getTemplateBackupRoot({
     appName: app.name,
@@ -300,6 +304,13 @@ function applyTemplateFiles(app: NonNullable<Awaited<ReturnType<typeof getApp>>>
   }
 
   return mappedFiles
+}
+
+function getActiveVariableConfigs(
+  app: NonNullable<Awaited<ReturnType<typeof getApp>>>
+) {
+  const activeSet = app.activeVariableSet || "default"
+  return app.variableConfigs.filter((variable) => variable.setName === activeSet)
 }
 
 async function rollbackTemplateFiles(

@@ -38,10 +38,12 @@ function parseAppUpdateInput(input: {
   appId?: number | string
   name?: string
   pathLocation?: string
+  activeVariableSet?: string
 }) {
   const { appId } = parseAppId(input)
   const name = input.name?.trim()
   const pathLocation = input.pathLocation?.trim()
+  const activeVariableSet = input.activeVariableSet?.trim()
 
   if (!name) {
     throw new Error("App name is required")
@@ -51,7 +53,7 @@ function parseAppUpdateInput(input: {
     throw new Error("App path is required")
   }
 
-  return { appId, name, pathLocation }
+  return { appId, name, pathLocation, activeVariableSet }
 }
 
 function parseWorkspaceId(input: { workspaceId?: number | string }) {
@@ -86,10 +88,12 @@ function parseConfigId(input: { id?: number | string }) {
 
 function parseVariableConfigInput(input: {
   appId?: number | string
+  setName?: string
   name?: string
   value?: string
 }) {
   const { appId } = parseAppId(input)
+  const setName = input.setName?.trim() || "default"
   const name = input.name?.trim()
   const value = input.value?.trim()
 
@@ -101,7 +105,21 @@ function parseVariableConfigInput(input: {
     throw new Error("Variable value is required")
   }
 
-  return { appId, name, value }
+  return { appId, setName, name, value }
+}
+
+function parseVariableSetInput(input: {
+  appId?: number | string
+  setName?: string
+}) {
+  const { appId } = parseAppId(input)
+  const setName = input.setName?.trim()
+
+  if (!setName) {
+    throw new Error("Variable set is required")
+  }
+
+  return { appId, setName }
 }
 
 function parseTemplateConfigInput(input: {
@@ -199,6 +217,7 @@ export const updateAppFn = createServerFn({ method: "POST" })
     return updateApp(data.appId, {
       name: data.name,
       pathLocation: data.pathLocation,
+      activeVariableSet: data.activeVariableSet,
     })
   })
 
@@ -246,6 +265,7 @@ export const updateVariableConfigFn = createServerFn({ method: "POST" })
     (input: {
       id?: number | string
       appId?: number | string
+      setName?: string
       name?: string
       value?: string
     }) => ({
@@ -259,6 +279,7 @@ export const updateVariableConfigFn = createServerFn({ method: "POST" })
 
     return updateVariableConfig(data.id, {
       appId: data.appId,
+      setName: data.setName,
       name: data.name,
       value: data.value,
     })
@@ -271,6 +292,15 @@ export const deleteVariableConfigFn = createServerFn({ method: "POST" })
       await import("./services/variable-configs.server")
 
     return deleteVariableConfig(data.id)
+  })
+
+export const deleteVariableSetFn = createServerFn({ method: "POST" })
+  .validator(parseVariableSetInput)
+  .handler(async ({ data }) => {
+    const { deleteVariableSet } =
+      await import("./services/variable-configs.server")
+
+    return deleteVariableSet(data.appId, data.setName)
   })
 
 export const createTemplateConfigFn = createServerFn({ method: "POST" })

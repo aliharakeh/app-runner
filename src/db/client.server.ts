@@ -36,6 +36,7 @@ export function ensureDatabaseSchema() {
       workspace_id INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
       path_location TEXT NOT NULL,
+      active_variable_set TEXT NOT NULL DEFAULT 'default',
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
@@ -43,6 +44,7 @@ export function ensureDatabaseSchema() {
     CREATE TABLE IF NOT EXISTS variable_configs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       app_id INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+      set_name TEXT NOT NULL DEFAULT 'default',
       name TEXT NOT NULL,
       value TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -79,6 +81,8 @@ export function ensureDatabaseSchema() {
       ON run_configs(app_id);
   `)
 
+  ensureColumn("apps", "active_variable_set", "TEXT NOT NULL DEFAULT 'default'")
+  ensureColumn("variable_configs", "set_name", "TEXT NOT NULL DEFAULT 'default'")
   ensureColumn("run_configs", "last_run_pid", "INTEGER")
   ensureColumn("run_configs", "last_run_status", "TEXT")
   ensureColumn("run_configs", "last_run_stdout", "TEXT NOT NULL DEFAULT ''")

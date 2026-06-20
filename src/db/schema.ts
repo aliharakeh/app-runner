@@ -24,6 +24,7 @@ export const apps = sqliteTable("apps", {
     .references(() => workspaces.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   pathLocation: text("path_location").notNull(),
+  activeVariableSet: text("active_variable_set").notNull().default("default"),
   createdAt: text("created_at")
     .notNull()
     .default(sql`CURRENT_TIMESTAMP`),
@@ -37,6 +38,7 @@ export const variableConfigs = sqliteTable("variable_configs", {
   appId: integer("app_id")
     .notNull()
     .references(() => apps.id, { onDelete: "cascade" }),
+  setName: text("set_name").notNull().default("default"),
   name: text("name").notNull(),
   value: text("value").notNull(),
   createdAt: text("created_at")

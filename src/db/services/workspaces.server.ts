@@ -32,7 +32,7 @@ export async function listWorkspaces() {
         orderBy: [asc(apps.name)],
         with: {
           variableConfigs: {
-            orderBy: [asc(variableConfigs.name)],
+            orderBy: [asc(variableConfigs.setName), asc(variableConfigs.name)],
           },
           templateConfigs: {
             orderBy: [asc(templateConfigs.filePath)],
@@ -54,7 +54,7 @@ export async function getWorkspace(id: number) {
         orderBy: [asc(apps.name)],
         with: {
           variableConfigs: {
-            orderBy: [asc(variableConfigs.name)],
+            orderBy: [asc(variableConfigs.setName), asc(variableConfigs.name)],
           },
           templateConfigs: {
             orderBy: [asc(templateConfigs.filePath)],
