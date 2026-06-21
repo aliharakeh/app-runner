@@ -38,7 +38,9 @@ export async function getVariableConfig(id: number) {
 
 export async function updateVariableConfig(
   id: number,
-  input: Partial<Pick<NewVariableConfig, "appId" | "setName" | "name" | "value">>
+  input: Partial<
+    Pick<NewVariableConfig, "appId" | "setName" | "name" | "value">
+  >
 ) {
   ensureDatabaseSchema()
 
@@ -73,7 +75,10 @@ export async function deleteVariableSet(appId: number, setName: string) {
   return db
     .delete(variableConfigs)
     .where(
-      and(eq(variableConfigs.appId, appId), eq(variableConfigs.setName, setName))
+      and(
+        eq(variableConfigs.appId, appId),
+        eq(variableConfigs.setName, setName)
+      )
     )
     .returning()
     .all()

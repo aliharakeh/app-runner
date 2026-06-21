@@ -82,7 +82,11 @@ export function ensureDatabaseSchema() {
   `)
 
   ensureColumn("apps", "active_variable_set", "TEXT NOT NULL DEFAULT 'default'")
-  ensureColumn("variable_configs", "set_name", "TEXT NOT NULL DEFAULT 'default'")
+  ensureColumn(
+    "variable_configs",
+    "set_name",
+    "TEXT NOT NULL DEFAULT 'default'"
+  )
   ensureColumn("run_configs", "last_run_pid", "INTEGER")
   ensureColumn("run_configs", "last_run_status", "TEXT")
   ensureColumn("run_configs", "last_run_stdout", "TEXT NOT NULL DEFAULT ''")

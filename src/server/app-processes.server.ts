@@ -113,7 +113,11 @@ export async function startAppProcess(appId: number) {
 
   child.on("exit", (code, signal) => {
     void finishRecord(record, {
-      status: record.requestedStop ? "stopped" : code === 0 ? "exited" : "error",
+      status: record.requestedStop
+        ? "stopped"
+        : code === 0
+          ? "exited"
+          : "error",
       exitCode: code,
       signal,
     })
@@ -265,7 +269,9 @@ function createStoppedSnapshot(appId: number): AppProcessSnapshot {
   }
 }
 
-function applyTemplateFiles(app: NonNullable<Awaited<ReturnType<typeof getApp>>>) {
+function applyTemplateFiles(
+  app: NonNullable<Awaited<ReturnType<typeof getApp>>>
+) {
   if (!app.templateConfigs.length) {
     return []
   }
@@ -310,7 +316,9 @@ function getActiveVariableConfigs(
   app: NonNullable<Awaited<ReturnType<typeof getApp>>>
 ) {
   const activeSet = app.activeVariableSet || "default"
-  return app.variableConfigs.filter((variable) => variable.setName === activeSet)
+  return app.variableConfigs.filter(
+    (variable) => variable.setName === activeSet
+  )
 }
 
 async function rollbackTemplateFiles(

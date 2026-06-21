@@ -1,0 +1,257 @@
+import { Link } from "@tanstack/react-router"
+import {
+  Activity,
+  FileCode,
+  FolderOpen,
+  Pencil,
+  Play,
+  RefreshCcw,
+  Square,
+  Trash2,
+  Variable,
+} from "lucide-react"
+import type * as React from "react"
+
+import { Button } from "@/components/ui/button"
+import type {
+  AppProcessStatus,
+  WorkspaceOverviewApp,
+} from "@/components/workspace-overview/types"
+
+export function WorkspaceAppsGrid({
+  apps,
+  isPending,
+  processStatuses,
+  workspaceId,
+  onDeleteApp,
+  onEditApp,
+  onProcessAction,
+}: {
+  apps: Array<WorkspaceOverviewApp>
+  isPending: boolean
+  processStatuses: Record<number, AppProcessStatus>
+  workspaceId: number
+  onDeleteApp: (app: WorkspaceOverviewApp) => void
+  onEditApp: (app: WorkspaceOverviewApp) => void
+  onProcessAction: (action: "start" | "stop" | "restart", appId: number) => void
+}) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      {apps.map((app) => (
+        <WorkspaceAppCard
+          key={app.id}
+          app={app}
+          isPending={isPending}
+          processStatus={processStatuses[app.id]}
+          workspaceId={workspaceId}
+          onDelete={() => onDeleteApp(app)}
+          onEdit={() => onEditApp(app)}
+          onRestart={() => onProcessAction("restart", app.id)}
+          onStart={() => onProcessAction("start", app.id)}
+          onStop={() => onProcessAction("stop", app.id)}
+        />
+      ))}
+    </div>
+  )
+}
+
+function WorkspaceAppCard({
+  app,
+  isPending,
+  processStatus,
+  workspaceId,
+  onDelete,
+  onEdit,
+  onRestart,
+  onStart,
+  onStop,
+}: {
+  app: WorkspaceOverviewApp
+  isPending: boolean
+  processStatus: AppProcessStatus
+  workspaceId: number
+  onDelete: () => void
+  onEdit: () => void
+  onRestart: () => void
+  onStart: () => void
+  onStop: () => void
+}) {
+  const appParams = {
+    workspaceId: String(workspaceId),
+    appId: String(app.id),
+  }
+
+  return (
+    <article className="flex min-h-44 flex-col gap-3 rounded-md border bg-card p-4 text-card-foreground">
+      <div className="flex items-start justify-between gap-3">
+        <Link
+          to="/workspaces/$workspaceId/apps/$appId"
+          params={appParams}
+          search={{ tab: "variables" }}
+          className="flex min-w-0 flex-1 items-start gap-2 rounded-md transition-colors hover:text-primary"
+        >
+          <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+            <FolderOpen />
+          </div>
+          <div className="min-w-0">
+            <h2 className="truncate text-base font-medium">{app.name}</h2>
+            <p className="mt-1 truncate text-sm text-muted-foreground">
+              {app.pathLocation}
+            </p>
+          </div>
+        </Link>
+        <AppLifecycleControls
+          commandConfigured={Boolean(app.runConfig?.command)}
+          isPending={isPending}
+          processStatus={processStatus}
+          onDelete={onDelete}
+          onEdit={onEdit}
+          onRestart={onRestart}
+          onStart={onStart}
+          onStop={onStop}
+        />
+      </div>
+
+      <Link
+        to="/workspaces/$workspaceId/apps/$appId"
+        params={appParams}
+        search={{ tab: "variables" }}
+        className="-mx-2 flex flex-1 flex-col rounded-md px-2 py-1 transition-colors hover:bg-muted/40"
+      >
+        <dl className="grid gap-3 text-sm">
+          <ConfigStat
+            icon={<Variable />}
+            label="Variables"
+            value={String(app.variableConfigs.length)}
+          />
+          <ConfigStat
+            icon={<FileCode />}
+            label="Templates"
+            value={String(app.templateConfigs.length)}
+          />
+          <ConfigStat
+            icon={<Play />}
+            label="Run command"
+            value={app.runConfig?.command || "Not configured"}
+          />
+          <ConfigStat
+            icon={<Activity />}
+            label="Status"
+            value={formatProcessStatus(processStatus)}
+          />
+        </dl>
+      </Link>
+    </article>
+  )
+}
+
+function AppLifecycleControls({
+  commandConfigured,
+  isPending,
+  processStatus,
+  onEdit,
+  onDelete,
+  onRestart,
+  onStart,
+  onStop,
+}: {
+  commandConfigured: boolean
+  isPending: boolean
+  processStatus: AppProcessStatus
+  onEdit: () => void
+  onDelete: () => void
+  onRestart: () => void
+  onStart: () => void
+  onStop: () => void
+}) {
+  const isRunning = processStatus.status === "running"
+
+  return (
+    <div className="flex shrink-0 items-center gap-1">
+      <Button
+        type="button"
+        size="icon-xs"
+        aria-label="Run app"
+        title="Run"
+        disabled={isPending || isRunning || !commandConfigured}
+        onClick={onStart}
+      >
+        <Play />
+      </Button>
+      <Button
+        type="button"
+        size="icon-xs"
+        variant="outline"
+        aria-label="Stop app"
+        title="Stop"
+        disabled={isPending || !isRunning}
+        onClick={onStop}
+      >
+        <Square />
+      </Button>
+      <Button
+        type="button"
+        size="icon-xs"
+        variant="outline"
+        aria-label="Restart app"
+        title="Restart"
+        disabled={isPending || !commandConfigured}
+        onClick={onRestart}
+      >
+        <RefreshCcw />
+      </Button>
+      <Button
+        type="button"
+        size="icon-xs"
+        variant="outline"
+        aria-label="Edit app"
+        title="Edit"
+        disabled={isPending || isRunning}
+        onClick={onEdit}
+      >
+        <Pencil />
+      </Button>
+      <Button
+        type="button"
+        size="icon-xs"
+        variant="destructive"
+        aria-label="Delete app"
+        title="Delete"
+        disabled={isPending || isRunning}
+        onClick={onDelete}
+      >
+        <Trash2 />
+      </Button>
+    </div>
+  )
+}
+
+function ConfigStat({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode
+  label: string
+  value: string
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground [&_svg]:size-3.5">
+        {icon}
+      </div>
+      <dt className="shrink-0 text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 flex-1 truncate text-right font-medium">
+        {value}
+      </dd>
+    </div>
+  )
+}
+
+function formatProcessStatus(status: { pid: number | null; status: string }) {
+  if (status.status === "running" && status.pid) {
+    return `Running (${status.pid})`
+  }
+
+  return status.status
+}
