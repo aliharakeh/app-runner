@@ -1,5 +1,13 @@
 import { Dialog } from "@base-ui/react/dialog"
-import { ChevronDown, Eye, Play, RefreshCcw, Square, X } from "lucide-react"
+import {
+  ChevronDown,
+  ExternalLink,
+  Eye,
+  Play,
+  RefreshCcw,
+  Square,
+  X,
+} from "lucide-react"
 import * as React from "react"
 
 import { inputClassName } from "@/components/app-config/form-styles"
@@ -40,6 +48,11 @@ export function RunTab({
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void
 }) {
   const lastRunConfig = runConfig?.lastRunStartedAt ? runConfig : null
+  const appPreviewUrl = lastRunConfig
+    ? getLocalAppUrl(
+        `${lastRunConfig.lastRunStdout}\n${lastRunConfig.lastRunStderr}`
+      )
+    : null
   const [previewOpen, setPreviewOpen] = React.useState(false)
 
   return (
@@ -67,6 +80,7 @@ export function RunTab({
             />
           </label>
           <RunLifecycleControls
+            appPreviewUrl={appPreviewUrl}
             commandConfigured={Boolean(command)}
             isPending={isPending}
             processStatus={processStatus}
@@ -223,6 +237,7 @@ function GeneratedFilePreview({
 }
 
 function RunLifecycleControls({
+  appPreviewUrl,
   commandConfigured,
   isPending,
   processStatus,
@@ -230,6 +245,7 @@ function RunLifecycleControls({
   onStart,
   onStop,
 }: {
+  appPreviewUrl: string | null
   commandConfigured: boolean
   isPending: boolean
   processStatus: AppProcessSnapshot
@@ -250,6 +266,21 @@ function RunLifecycleControls({
         onClick={onStart}
       >
         <Play />
+      </Button>
+      <Button
+        type="button"
+        size="icon-sm"
+        variant="outline"
+        aria-label="Open web preview"
+        title={appPreviewUrl ? `Open ${appPreviewUrl}` : "No local web preview"}
+        disabled={!appPreviewUrl}
+        onClick={() => {
+          if (appPreviewUrl) {
+            window.open(appPreviewUrl, "_blank", "noopener,noreferrer")
+          }
+        }}
+      >
+        <ExternalLink />
       </Button>
       <Button
         type="button"
@@ -278,16 +309,45 @@ function RunLifecycleControls({
 }
 
 function RunLogPanel({ label, value }: { label: string; value: string }) {
+  const readableValue = sanitizeRunLog(value).trim()
+
   return (
     <div className="min-w-0 rounded-md border bg-muted/30">
       <div className="border-b px-3 py-2 text-sm font-medium text-muted-foreground">
         {label}
       </div>
       <pre className="max-h-[28rem] overflow-auto p-3 font-mono text-sm leading-6 break-words whitespace-pre-wrap">
-        {value.trim() || "No output"}
+        {readableValue || "No output"}
       </pre>
     </div>
   )
+}
+
+const ANSI_ESCAPE_PATTERN =
+  /(?:\u001B\][^\u0007]*(?:\u0007|\u001B\\))|(?:[\u001B\u009B][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[a-zA-Z\d]*)*)?\u0007)|(?:(?:\d{1,4}(?:[;:]\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~])))/g
+
+const ESCAPED_ANSI_PATTERN =
+  /(?:\\u001[bB]|\\x1[bB]|\\e|\\033)\[[0-?]*[ -/]*[@-~]/g
+
+export function sanitizeRunLog(log: string) {
+  return log
+    .replace(ESCAPED_ANSI_PATTERN, "")
+    .replace(ANSI_ESCAPE_PATTERN, "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+}
+
+export function getLocalAppUrl(log: string) {
+  const readableLog = sanitizeRunLog(log)
+  const matches = Array.from(
+    readableLog.matchAll(
+      /https?:\/\/(?:localhost|127\.0\.0\.1):\d+(?:\/[^\s"'<>)]*)?/gi
+    )
+  )
+  const lastMatch = matches.at(-1)?.[0]
+
+  return lastMatch?.replace(/[.,;:!?]+$/, "") ?? null
 }
 
 function formatRunSummary(runConfig: RunConfigLastRun) {
