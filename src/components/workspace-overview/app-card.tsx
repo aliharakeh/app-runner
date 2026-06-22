@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router"
 import {
   Activity,
+  ExternalLink,
   FileCode,
   FolderOpen,
   Pencil,
@@ -12,6 +13,7 @@ import {
 } from "lucide-react"
 import type * as React from "react"
 
+import { getLocalAppUrl } from "@/components/app-config/run-tab"
 import { Button } from "@/components/ui/button"
 import type {
   AppProcessStatus,
@@ -98,6 +100,9 @@ function WorkspaceAppCard({
   const activeVariableCount = app.variableConfigs.filter(
     (variable) => variable.setName === activeVariableSet
   ).length
+  const appPreviewUrl = getLocalAppUrl(
+    `${processStatus.stdout}\n${processStatus.stderr}`
+  )
 
   return (
     <article className="flex min-h-44 flex-col gap-3 rounded-md border bg-card p-4 text-card-foreground">
@@ -119,6 +124,7 @@ function WorkspaceAppCard({
           </div>
         </Link>
         <AppLifecycleControls
+          appPreviewUrl={appPreviewUrl}
           commandConfigured={Boolean(app.runConfig?.command)}
           isPending={isPending}
           processStatus={processStatus}
@@ -170,6 +176,7 @@ function WorkspaceAppCard({
 }
 
 function AppLifecycleControls({
+  appPreviewUrl,
   commandConfigured,
   isPending,
   processStatus,
@@ -179,6 +186,7 @@ function AppLifecycleControls({
   onStart,
   onStop,
 }: {
+  appPreviewUrl: string | null
   commandConfigured: boolean
   isPending: boolean
   processStatus: AppProcessStatus
@@ -201,6 +209,21 @@ function AppLifecycleControls({
         onClick={onStart}
       >
         <Play />
+      </Button>
+      <Button
+        type="button"
+        size="icon-xs"
+        variant="outline"
+        aria-label="Open web preview"
+        title={appPreviewUrl ? `Open ${appPreviewUrl}` : "No local web preview"}
+        disabled={!appPreviewUrl}
+        onClick={() => {
+          if (appPreviewUrl) {
+            window.open(appPreviewUrl, "_blank", "noopener,noreferrer")
+          }
+        }}
+      >
+        <ExternalLink />
       </Button>
       <Button
         type="button"
