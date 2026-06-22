@@ -23,6 +23,7 @@ export function WorkspaceAppsGrid({
   isPending,
   processStatuses,
   workspaceId,
+  onActiveVariableSetChange,
   onDeleteApp,
   onEditApp,
   onProcessAction,
@@ -31,6 +32,10 @@ export function WorkspaceAppsGrid({
   isPending: boolean
   processStatuses: Record<number, AppProcessStatus>
   workspaceId: number
+  onActiveVariableSetChange: (
+    app: WorkspaceOverviewApp,
+    activeVariableSet: string
+  ) => void
   onDeleteApp: (app: WorkspaceOverviewApp) => void
   onEditApp: (app: WorkspaceOverviewApp) => void
   onProcessAction: (action: "start" | "stop" | "restart", appId: number) => void
@@ -44,6 +49,9 @@ export function WorkspaceAppsGrid({
           isPending={isPending}
           processStatus={processStatuses[app.id]}
           workspaceId={workspaceId}
+          onActiveVariableSetChange={(activeVariableSet) =>
+            onActiveVariableSetChange(app, activeVariableSet)
+          }
           onDelete={() => onDeleteApp(app)}
           onEdit={() => onEditApp(app)}
           onRestart={() => onProcessAction("restart", app.id)}
@@ -62,6 +70,7 @@ function WorkspaceAppCard({
   workspaceId,
   onDelete,
   onEdit,
+  onActiveVariableSetChange,
   onRestart,
   onStart,
   onStop,
@@ -72,6 +81,7 @@ function WorkspaceAppCard({
   workspaceId: number
   onDelete: () => void
   onEdit: () => void
+  onActiveVariableSetChange: (activeVariableSet: string) => void
   onRestart: () => void
   onStart: () => void
   onStop: () => void
@@ -80,6 +90,14 @@ function WorkspaceAppCard({
     workspaceId: String(workspaceId),
     appId: String(app.id),
   }
+  const activeVariableSet = app.activeVariableSet || "default"
+  const variableSetNames = getVariableSetNames(
+    app.variableConfigs,
+    activeVariableSet
+  )
+  const activeVariableCount = app.variableConfigs.filter(
+    (variable) => variable.setName === activeVariableSet
+  ).length
 
   return (
     <article className="flex min-h-44 flex-col gap-3 rounded-md border bg-card p-4 text-card-foreground">
@@ -121,8 +139,8 @@ function WorkspaceAppCard({
         <dl className="grid gap-3 text-sm">
           <ConfigStat
             icon={<Variable />}
-            label="Variables"
-            value={String(app.variableConfigs.length)}
+            label="Active variables"
+            value={String(activeVariableCount)}
           />
           <ConfigStat
             icon={<FileCode />}
@@ -141,6 +159,12 @@ function WorkspaceAppCard({
           />
         </dl>
       </Link>
+      <ActiveVariableSetControl
+        activeVariableSet={activeVariableSet}
+        disabled={isPending}
+        variableSetNames={variableSetNames}
+        onChange={onActiveVariableSetChange}
+      />
     </article>
   )
 }
@@ -226,6 +250,47 @@ function AppLifecycleControls({
   )
 }
 
+function ActiveVariableSetControl({
+  activeVariableSet,
+  disabled,
+  variableSetNames,
+  onChange,
+}: {
+  activeVariableSet: string
+  disabled: boolean
+  variableSetNames: Array<string>
+  onChange: (activeVariableSet: string) => void
+}) {
+  if (variableSetNames.length === 1) {
+    return (
+      <div className="flex min-w-0 items-center gap-2 text-sm">
+        <span className="shrink-0 text-muted-foreground">Applied set</span>
+        <span className="min-w-0 flex-1 truncate rounded-md border border-input bg-muted px-2 py-1.5 font-medium">
+          {activeVariableSet}
+        </span>
+      </div>
+    )
+  }
+
+  return (
+    <label className="flex min-w-0 items-center gap-2 text-sm">
+      <span className="shrink-0 text-muted-foreground">Applied set</span>
+      <select
+        className="h-8 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+        value={activeVariableSet}
+        disabled={disabled}
+        onChange={(event) => onChange(event.currentTarget.value)}
+      >
+        {variableSetNames.map((setName) => (
+          <option key={setName} value={setName}>
+            {setName}
+          </option>
+        ))}
+      </select>
+    </label>
+  )
+}
+
 function ConfigStat({
   icon,
   label,
@@ -254,4 +319,17 @@ function formatProcessStatus(status: { pid: number | null; status: string }) {
   }
 
   return status.status
+}
+
+function getVariableSetNames(
+  variables: Array<{ setName: string }>,
+  activeSet = "default"
+) {
+  return Array.from(
+    new Set([
+      activeSet,
+      "default",
+      ...variables.map((variable) => variable.setName),
+    ])
+  ).sort()
 }

@@ -294,7 +294,7 @@ function applyTemplateFiles(
       Handlebars.compile(template.filePath, { noEscape: true })(values)
     )
     const relativePath = path.relative(app.pathLocation, targetPath)
-    const backupPath = path.join(backupRoot, relativePath)
+    const backupPath = path.join(backupRoot, path.basename(targetPath))
     const content = Handlebars.compile(template.templateContent, {
       noEscape: true,
     })(values)

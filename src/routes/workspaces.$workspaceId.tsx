@@ -231,6 +231,24 @@ function WorkspaceOverview() {
           isPending={isPending}
           processStatuses={processStatuses}
           workspaceId={selectedWorkspace.id}
+          onActiveVariableSetChange={(app, activeVariableSet) => {
+            startTransition(async () => {
+              try {
+                setProcessError("")
+                await updateApp({
+                  data: {
+                    appId: app.id,
+                    name: app.name,
+                    pathLocation: app.pathLocation,
+                    activeVariableSet,
+                  },
+                })
+                await router.invalidate()
+              } catch (error) {
+                setProcessError(getErrorMessage(error))
+              }
+            })
+          }}
           onDeleteApp={(app) => {
             setDeleteAppError("")
             setDeletingApp(app)

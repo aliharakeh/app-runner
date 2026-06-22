@@ -1,0 +1,11 @@
+{
+    "/api": {
+        "target": "https://cpm-dev.trinov.com",
+        "secure": false,
+        "changeOrigin": true
+    },
+    "/oauth": {
+        "target": "https://accounts-dev.trinov.com",
+        "secure": false
+    }
+}

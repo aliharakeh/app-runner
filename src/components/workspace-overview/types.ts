@@ -16,8 +16,9 @@ export type WorkspaceOverviewApp = {
   id: number
   name: string
   pathLocation: string
+  activeVariableSet: string
   runConfig?: { command: string } | null
-  variableConfigs: Array<unknown>
+  variableConfigs: Array<{ setName: string }>
   templateConfigs: Array<unknown>
 }
 

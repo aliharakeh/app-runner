@@ -16,13 +16,6 @@ export type SidebarWorkspace = {
   apps: SidebarApp[]
 }
 
-const navigationItems = [
-  {
-    label: "Dashboard",
-    to: "/",
-  },
-] as const
-
 export function AppSidebar({
   isPending,
   workspaces,
@@ -63,27 +56,10 @@ export function AppSidebar({
 
   return (
     <aside className="flex w-72 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground">
-      <div className="border-b px-5 py-4">
-        <p className="text-sm font-medium">App Runner</p>
-      </div>
       <div className="flex min-h-0 flex-1 flex-col">
-        <nav className="flex flex-col gap-1 p-3" aria-label="Main navigation">
-          {navigationItems.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className="rounded-md px-3 py-2 text-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-              activeProps={{
-                className: "bg-sidebar-accent text-sidebar-accent-foreground",
-              }}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
         <div className="flex min-h-0 flex-1 flex-col gap-2 px-3 pb-3">
           <div className="flex items-center justify-between px-3">
-            <p className="text-xs font-medium text-muted-foreground">
+            <p className="mt-4 mb-2 text-lg font-bold text-muted-foreground">
               Workspaces
             </p>
             <Button
@@ -97,7 +73,7 @@ export function AppSidebar({
               <Plus />
             </Button>
           </div>
-          <label className="relative block px-3">
+          <label className="relative mb-2 block px-3">
             <span className="sr-only">Search workspaces and apps</span>
             <Search className="pointer-events-none absolute top-1/2 left-5 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <input

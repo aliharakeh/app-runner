@@ -4,7 +4,8 @@ import "prismjs/themes/prism-tomorrow.css"
 
 import { getErrorMessage } from "@/components/workspace-dialogs"
 import type { AppTemplateConfig } from "@/components/app-config/types"
-;(globalThis as typeof globalThis & { Prism?: typeof Prism }).Prism = Prism
+
+(globalThis as typeof globalThis & { Prism?: typeof Prism }).Prism = Prism
 await import("prismjs/components/prism-bash")
 await import("prismjs/components/prism-json")
 await import("prismjs/components/prism-yaml")

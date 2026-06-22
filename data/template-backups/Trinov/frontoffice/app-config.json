@@ -1,0 +1,4 @@
+{
+    "keycloakUrl": "https://accounts-dev.trinov.com",
+    "realm": "dev"
+}
