@@ -20,8 +20,8 @@ export function DeleteWorkspaceDialog({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 bg-background/80 backdrop-blur-sm" />
-        <Dialog.Popup className="fixed top-1/2 left-1/2 flex w-[min(calc(100vw-2rem),25rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-md border bg-popover p-5 text-popover-foreground shadow-lg outline-none">
+        <Dialog.Backdrop className="fixed inset-0 bg-foreground/20 backdrop-blur-sm" />
+        <Dialog.Popup className="app-panel fixed top-1/2 left-1/2 flex w-[min(calc(100vw-2rem),25rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-lg bg-popover p-5 text-popover-foreground outline-none">
           <div className="flex flex-col gap-2">
             <Dialog.Title className="text-base font-semibold">
               Delete workspace
@@ -76,8 +76,8 @@ export function DeleteAppDialog({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 bg-background/80 backdrop-blur-sm" />
-        <Dialog.Popup className="fixed top-1/2 left-1/2 flex w-[min(calc(100vw-2rem),25rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-md border bg-popover p-5 text-popover-foreground shadow-lg outline-none">
+        <Dialog.Backdrop className="fixed inset-0 bg-foreground/20 backdrop-blur-sm" />
+        <Dialog.Popup className="app-panel fixed top-1/2 left-1/2 flex w-[min(calc(100vw-2rem),25rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-lg bg-popover p-5 text-popover-foreground outline-none">
           <div className="flex flex-col gap-2">
             <Dialog.Title className="text-base font-semibold">
               Delete app

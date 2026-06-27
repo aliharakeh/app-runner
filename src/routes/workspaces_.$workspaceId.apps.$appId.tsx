@@ -105,7 +105,7 @@ function AppConfigPage() {
 
   if (!selectedApp) {
     return (
-      <section className="flex flex-col gap-3 p-6">
+      <section className="app-page flex flex-col gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">App not found</h1>
         <p className="text-sm text-muted-foreground">
           The app may have been deleted or moved to another workspace.
@@ -195,11 +195,7 @@ function AppConfigPage() {
     })
   }
 
-  function handleActiveVariableSetChange(
-    event: React.ChangeEvent<HTMLSelectElement>
-  ) {
-    const nextVariableSet = event.currentTarget.value
-
+  function handleActiveVariableSetChange(nextVariableSet: string) {
     startTransition(async () => {
       try {
         setError("")
@@ -362,17 +358,17 @@ function AppConfigPage() {
   }
 
   return (
-    <section className="flex min-h-svh flex-col gap-6 p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <section className="app-page flex flex-col gap-6">
+      <div className="app-panel flex flex-wrap items-start justify-between gap-4 rounded-lg p-4 sm:p-5">
         <div className="min-w-0">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs font-semibold tracking-[0.18em] text-primary uppercase">
             <Settings2 />
             <span>App configuration</span>
           </div>
-          <h1 className="mt-2 truncate text-2xl font-semibold tracking-tight">
+          <h1 className="mt-2 truncate text-3xl font-semibold tracking-tight">
             {currentApp.name}
           </h1>
-          <p className="mt-1 truncate text-sm text-muted-foreground">
+          <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
             {currentApp.pathLocation}
           </p>
         </div>
@@ -418,7 +414,7 @@ function AppConfigPage() {
         onSubmit={handleAppSubmit}
       />
 
-      <div className="flex flex-wrap gap-2 border-b">
+      <div className="app-panel flex w-fit flex-wrap gap-1 rounded-lg p-1">
         <TabButton
           active={tab === "variables"}
           icon={<Variable />}
@@ -440,7 +436,10 @@ function AppConfigPage() {
       </div>
 
       {error ? (
-        <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <p
+          className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive"
+          role="alert"
+        >
           {error}
         </p>
       ) : null}

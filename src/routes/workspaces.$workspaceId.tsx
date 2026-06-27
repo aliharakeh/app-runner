@@ -87,7 +87,7 @@ function WorkspaceOverview() {
 
   if (!selectedWorkspace) {
     return (
-      <section className="flex flex-col gap-3 p-6">
+      <section className="app-page flex flex-col gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">
           Workspace not found
         </h1>
@@ -211,7 +211,7 @@ function WorkspaceOverview() {
   }
 
   return (
-    <section className="flex min-h-svh flex-col gap-6 p-6">
+    <section className="app-page flex flex-col gap-6">
       <WorkspaceOverviewHeader
         appCount={selectedWorkspace.apps.length}
         workspaceName={selectedWorkspace.name}
@@ -270,7 +270,7 @@ function WorkspaceOverview() {
 
       {processError ? (
         <p
-          className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive"
           role="alert"
         >
           {processError}

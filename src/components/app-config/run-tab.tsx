@@ -65,7 +65,7 @@ export function RunTab({
       />
 
       <form
-        className="flex flex-col gap-4 rounded-md border bg-card p-4"
+        className="app-panel flex flex-col gap-4 rounded-lg p-4"
         onSubmit={onSubmit}
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -90,8 +90,11 @@ export function RunTab({
           />
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">
-            Status: {formatProcessStatus(processStatus)}
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span>Status</span>
+            <StatusPill status={processStatus.status.toLowerCase()}>
+              {formatProcessStatus(processStatus)}
+            </StatusPill>
           </p>
           <div className="flex flex-wrap gap-2">
             <Button
@@ -111,7 +114,7 @@ export function RunTab({
         </div>
       </form>
 
-      <section className="flex flex-col gap-4 rounded-md border bg-card p-4">
+      <section className="app-panel flex flex-col gap-4 rounded-lg p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="text-base font-semibold">Last run log</h2>
@@ -168,8 +171,8 @@ function GeneratedFilesDialog({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 bg-background/80 backdrop-blur-sm" />
-        <Dialog.Popup className="fixed top-1/2 left-1/2 flex max-h-[min(calc(100svh-2rem),46rem)] w-[min(calc(100vw-2rem),56rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-auto rounded-md border bg-popover p-5 text-popover-foreground shadow-lg outline-none">
+        <Dialog.Backdrop className="fixed inset-0 bg-foreground/20 backdrop-blur-sm" />
+        <Dialog.Popup className="app-panel fixed top-1/2 left-1/2 flex max-h-[min(calc(100svh-2rem),46rem)] w-[min(calc(100vw-2rem),56rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-auto rounded-lg bg-popover p-5 text-popover-foreground outline-none">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <Dialog.Title className="text-base font-semibold">
@@ -215,7 +218,7 @@ function GeneratedFilePreview({
     : highlightTemplateContent(template.content, language)
 
   return (
-    <details className="group rounded-md border" open>
+    <details className="group rounded-lg border bg-background" open>
       <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm font-medium transition-colors hover:bg-muted [&::-webkit-details-marker]:hidden">
         <span className="truncate">{template.filePath}</span>
         <ChevronDown className="shrink-0 transition-transform group-open:rotate-180" />
@@ -225,7 +228,7 @@ function GeneratedFilePreview({
           {template.error}
         </p>
       ) : (
-        <pre className="max-h-96 overflow-auto border-t bg-[#2d2d2d] p-4 text-sm leading-6">
+        <pre className="code-surface max-h-96 overflow-auto border-t p-4 text-sm leading-6">
           <code
             className={`language-${language}`}
             dangerouslySetInnerHTML={{ __html: highlightedContent }}
@@ -312,14 +315,28 @@ function RunLogPanel({ label, value }: { label: string; value: string }) {
   const readableValue = sanitizeRunLog(value).trim()
 
   return (
-    <div className="min-w-0 rounded-md border bg-muted/30">
-      <div className="border-b px-3 py-2 text-sm font-medium text-muted-foreground">
+    <div className="min-w-0 rounded-lg border bg-background">
+      <div className="border-b bg-muted/50 px-3 py-2 font-mono text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
         {label}
       </div>
-      <pre className="max-h-[28rem] overflow-auto p-3 font-mono text-sm leading-6 break-words whitespace-pre-wrap">
+      <pre className="code-surface max-h-[28rem] overflow-auto p-3 font-mono text-sm leading-6 break-words whitespace-pre-wrap">
         {readableValue || "No output"}
       </pre>
     </div>
+  )
+}
+
+function StatusPill({
+  children,
+  status,
+}: {
+  children: React.ReactNode
+  status: string
+}) {
+  return (
+    <span className="status-pill max-w-full truncate" data-status={status}>
+      {children}
+    </span>
   )
 }
 

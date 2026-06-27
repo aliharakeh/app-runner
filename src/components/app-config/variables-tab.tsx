@@ -6,6 +6,14 @@ import { EmptyState } from "@/components/app-config/empty-state"
 import { inputClassName } from "@/components/app-config/form-styles"
 import type { AppVariableConfig } from "@/components/app-config/types"
 import { Button } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 export function VariablesTab({
   isPending,
@@ -33,9 +41,14 @@ export function VariablesTab({
   onDeleteSetOpenChange: (open: boolean) => void
   onNewSetOpenChange: (open: boolean) => void
   onNewSetSubmit: (event: React.FormEvent<HTMLFormElement>) => void
-  onSetChange: (event: React.ChangeEvent<HTMLSelectElement>) => void
+  onSetChange: (setName: string) => void
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void
 }) {
+  const variableSetItems = variableSetNames.map((setName) => ({
+    label: setName,
+    value: setName,
+  }))
+
   return (
     <div className="flex flex-col gap-4">
       <NewVariableSetDialog
@@ -52,21 +65,32 @@ export function VariablesTab({
         onDelete={onDeleteSet}
         onOpenChange={onDeleteSetOpenChange}
       />
-      <div className="flex flex-wrap items-end gap-2">
+      <div className="app-panel flex flex-wrap items-end gap-3 rounded-lg p-4">
         <label className="flex w-fit min-w-52 flex-col gap-2 text-sm font-medium">
           Applied set
-          <select
-            className={inputClassName}
+          <Select
+            items={variableSetItems}
             value={activeVariableSet}
             disabled={isPending}
-            onChange={onSetChange}
+            onValueChange={(value) => {
+              if (value) {
+                onSetChange(value)
+              }
+            }}
           >
-            {variableSetNames.map((setName) => (
-              <option key={setName} value={setName}>
-                {setName}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="h-9 w-full bg-background shadow-inner shadow-muted/40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent alignItemWithTrigger={false} align="start">
+              <SelectGroup>
+                {variableSetItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </label>
         <Button
           type="button"
@@ -88,7 +112,7 @@ export function VariablesTab({
         </Button>
       </div>
       <form
-        className="grid gap-3 rounded-md border bg-card p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
+        className="app-panel grid gap-3 rounded-lg p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
         onSubmit={onSubmit}
       >
         <input type="hidden" name="setName" value={activeVariableSet} />
@@ -121,7 +145,7 @@ export function VariablesTab({
           {variables.map((variable) => (
             <form
               key={variable.id}
-              className="grid gap-3 rounded-md border p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto]"
+              className="app-panel grid gap-3 rounded-lg p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto]"
               onSubmit={onSubmit}
             >
               <input type="hidden" name="id" value={variable.id} />
@@ -184,8 +208,8 @@ function NewVariableSetDialog({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 bg-background/80 backdrop-blur-sm" />
-        <Dialog.Popup className="fixed top-1/2 left-1/2 flex w-[min(calc(100vw-2rem),24rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-md border bg-popover p-5 text-popover-foreground shadow-lg outline-none">
+        <Dialog.Backdrop className="fixed inset-0 bg-foreground/20 backdrop-blur-sm" />
+        <Dialog.Popup className="app-panel fixed top-1/2 left-1/2 flex w-[min(calc(100vw-2rem),24rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-lg bg-popover p-5 text-popover-foreground outline-none">
           <div className="flex items-start justify-between gap-3">
             <Dialog.Title className="text-base font-semibold">
               New variable set
@@ -245,8 +269,8 @@ function DeleteVariableSetDialog({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 bg-background/80 backdrop-blur-sm" />
-        <Dialog.Popup className="fixed top-1/2 left-1/2 flex w-[min(calc(100vw-2rem),24rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-md border bg-popover p-5 text-popover-foreground shadow-lg outline-none">
+        <Dialog.Backdrop className="fixed inset-0 bg-foreground/20 backdrop-blur-sm" />
+        <Dialog.Popup className="app-panel fixed top-1/2 left-1/2 flex w-[min(calc(100vw-2rem),24rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-lg bg-popover p-5 text-popover-foreground outline-none">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <Dialog.Title className="text-base font-semibold">

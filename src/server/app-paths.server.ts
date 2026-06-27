@@ -2,14 +2,7 @@ import "@tanstack/react-start/server-only"
 
 import fs from "node:fs"
 import path from "node:path"
-
-const IGNORED_FILE_DIRS = new Set([
-  ".git",
-  ".next",
-  "build",
-  "dist",
-  "node_modules",
-])
+import ignore from "ignore"
 
 export function normalizeAppPathLocation(pathLocation: string) {
   const normalizedPath = path.resolve(pathLocation)
@@ -36,27 +29,56 @@ export function validateAppPathLocation(pathLocation: string) {
 export function listAppPathFiles(pathLocation: string) {
   const root = normalizeAppPathLocation(pathLocation)
   const files: Array<string> = []
+  const ignoresDirectory = createGitignoreDirectoryMatcher(root)
 
-  collectFiles(root, root, files)
+  collectFiles(root, root, files, ignoresDirectory)
 
   return files.sort((left, right) => left.localeCompare(right))
 }
 
-function collectFiles(root: string, currentPath: string, files: Array<string>) {
-  for (const entry of fs.readdirSync(currentPath, { withFileTypes: true })) {
-    if (entry.isDirectory() && IGNORED_FILE_DIRS.has(entry.name)) {
-      continue
-    }
+function createGitignoreDirectoryMatcher(root: string) {
+  const gitignorePath = path.join(root, ".gitignore")
 
+  if (!fs.existsSync(gitignorePath)) {
+    return () => false
+  }
+
+  const matcher = ignore().add(fs.readFileSync(gitignorePath, "utf8"))
+
+  return (relativePath: string) => {
+    const normalizedPath = toGitignorePath(relativePath)
+
+    return (
+      matcher.ignores(normalizedPath) || matcher.ignores(`${normalizedPath}/`)
+    )
+  }
+}
+
+function collectFiles(
+  root: string,
+  currentPath: string,
+  files: Array<string>,
+  ignoresDirectory: (relativePath: string) => boolean
+) {
+  for (const entry of fs.readdirSync(currentPath, { withFileTypes: true })) {
     const entryPath = path.join(currentPath, entry.name)
+    const relativePath = path.relative(root, entryPath)
 
     if (entry.isDirectory()) {
-      collectFiles(root, entryPath, files)
+      if (ignoresDirectory(relativePath)) {
+        continue
+      }
+
+      collectFiles(root, entryPath, files, ignoresDirectory)
       continue
     }
 
     if (entry.isFile()) {
-      files.push(path.relative(root, entryPath))
+      files.push(relativePath)
     }
   }
+}
+
+function toGitignorePath(filePath: string) {
+  return filePath.split(path.sep).join("/")
 }

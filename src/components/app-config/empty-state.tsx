@@ -6,8 +6,8 @@ export function EmptyState({
   description: string
 }) {
   return (
-    <div className="flex min-h-40 flex-col items-center justify-center gap-1 rounded-md border border-dashed p-6 text-center">
-      <h2 className="text-base font-medium">{title}</h2>
+    <div className="app-panel flex min-h-44 flex-col items-center justify-center gap-1 rounded-lg border-dashed p-6 text-center">
+      <h2 className="text-base font-semibold">{title}</h2>
       <p className="max-w-md text-sm text-muted-foreground">{description}</p>
     </div>
   )

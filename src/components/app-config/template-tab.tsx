@@ -3,13 +3,20 @@ import { ChevronDown, Pencil, Plus, Trash2, X } from "lucide-react"
 import * as React from "react"
 
 import { EmptyState } from "@/components/app-config/empty-state"
-import { inputClassName } from "@/components/app-config/form-styles"
 import {
   getTemplateLanguage,
   highlightTemplateContent,
 } from "@/components/app-config/template-syntax"
 import type { AppTemplateConfig } from "@/components/app-config/types"
 import { Button } from "@/components/ui/button"
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@/components/ui/combobox"
 
 export function TemplateTab({
   appFiles,
@@ -33,7 +40,7 @@ export function TemplateTab({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
+      <div className="app-panel flex items-center justify-between gap-3 rounded-lg p-4">
         <div className="min-w-0">
           <h2 className="text-base font-semibold">Templates</h2>
           <p className="text-sm text-muted-foreground">
@@ -82,7 +89,7 @@ export function TemplateTab({
           {templates.map((template) => (
             <article
               key={template.id}
-              className="flex flex-col gap-3 rounded-md border bg-card p-4"
+              className="app-panel flex flex-col gap-3 rounded-lg p-4"
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -152,12 +159,25 @@ function TemplateDialog({
   const [content, setContent] = React.useState(template?.templateContent ?? "")
   const title = mode === "create" ? "Add template" : "Edit template"
   const language = getTemplateLanguage(filePath, content)
+  const filePathItems = Array.from(
+    new Set(
+      [template?.filePath, ...appFiles].filter(
+        (candidate): candidate is string => Boolean(candidate)
+      )
+    )
+  )
+  const normalizedFilePathQuery = filePath.trim().toLowerCase()
+  const filteredFilePathItems = normalizedFilePathQuery
+    ? filePathItems.filter((file) =>
+        file.toLowerCase().includes(normalizedFilePathQuery)
+      )
+    : filePathItems
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 bg-background/80 backdrop-blur-sm" />
-        <Dialog.Popup className="fixed top-1/2 left-1/2 flex max-h-[min(calc(100svh-2rem),46rem)] w-[min(calc(100vw-2rem),48rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-auto rounded-md border bg-popover p-5 text-popover-foreground shadow-lg outline-none">
+        <Dialog.Backdrop className="fixed inset-0 bg-foreground/20 backdrop-blur-sm" />
+        <Dialog.Popup className="app-panel fixed top-1/2 left-1/2 flex max-h-[min(calc(100svh-2rem),46rem)] w-[min(calc(100vw-2rem),48rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-auto rounded-lg bg-popover p-5 text-popover-foreground outline-none">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <Dialog.Title className="text-base font-semibold">
@@ -185,21 +205,42 @@ function TemplateDialog({
             ) : null}
             <label className="flex flex-col gap-2 text-sm font-medium">
               Replaced file path
-              <input
-                autoFocus
-                name="filePath"
+              <input type="hidden" name="filePath" value={filePath} />
+              <Combobox
+                items={filePathItems}
                 required
-                value={filePath}
-                list="template-file-paths"
-                className={inputClassName}
-                placeholder="src/main.tsx"
-                onChange={(event) => setFilePath(event.currentTarget.value)}
-              />
-              <datalist id="template-file-paths">
-                {appFiles.map((file) => (
-                  <option key={file} value={file} />
-                ))}
-              </datalist>
+                inputValue={filePath}
+                value={filePath || null}
+                onInputValueChange={setFilePath}
+                onValueChange={(value) => {
+                  setFilePath(value ?? "")
+                }}
+              >
+                <ComboboxInput
+                  autoFocus
+                  required
+                  showClear
+                  className="h-9 w-full bg-background shadow-inner shadow-muted/40"
+                  placeholder="Search or type a file path"
+                />
+                <ComboboxContent>
+                  <ComboboxList>
+                    {filteredFilePathItems.length ? (
+                      filteredFilePathItems.map((file) => (
+                        <ComboboxItem key={file} value={file}>
+                          <span className="truncate font-mono text-xs">
+                            {file}
+                          </span>
+                        </ComboboxItem>
+                      ))
+                    ) : (
+                      <ComboboxEmpty className="flex">
+                        No matching files.
+                      </ComboboxEmpty>
+                    )}
+                  </ComboboxList>
+                </ComboboxContent>
+              </Combobox>
             </label>
             <TemplateCodeEditor
               content={content}
@@ -235,12 +276,12 @@ function TemplateContentPreview({
   const highlightedContent = highlightTemplateContent(content, language)
 
   return (
-    <details className="group rounded-md border">
+    <details className="group rounded-lg border bg-background">
       <summary className="flex h-10 cursor-pointer list-none items-center justify-between gap-3 px-3 text-sm font-medium transition-colors hover:bg-muted [&::-webkit-details-marker]:hidden">
         Template content
         <ChevronDown className="transition-transform group-open:rotate-180" />
       </summary>
-      <pre className="max-h-96 overflow-auto border-t bg-[#2d2d2d] p-4 text-sm leading-6">
+      <pre className="code-surface max-h-96 overflow-auto border-t p-4 text-sm leading-6">
         <code
           className={`language-${language}`}
           dangerouslySetInnerHTML={{ __html: highlightedContent }}
@@ -275,7 +316,7 @@ function TemplateCodeEditor({
   return (
     <label className="flex flex-col gap-2 text-sm font-medium">
       Template content
-      <div className="relative min-h-72 rounded-md border bg-[#2d2d2d]">
+      <div className="code-surface relative min-h-72 rounded-lg border">
         <pre
           ref={previewRef}
           aria-hidden="true"

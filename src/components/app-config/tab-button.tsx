@@ -17,10 +17,10 @@ export function TabButton({
     <button
       type="button"
       className={cn(
-        "flex h-10 items-center gap-2 border-b-2 px-3 text-sm font-medium transition-colors",
+        "flex h-9 items-center gap-2 rounded-md px-3 text-sm font-semibold transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none [&_svg]:size-4",
         active
-          ? "border-primary text-foreground"
-          : "border-transparent text-muted-foreground hover:text-foreground"
+          ? "bg-primary text-primary-foreground shadow-sm"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground"
       )}
       onClick={onClick}
     >

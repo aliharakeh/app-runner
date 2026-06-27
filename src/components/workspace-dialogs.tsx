@@ -2,6 +2,7 @@ import { Dialog } from "@base-ui/react/dialog"
 import { X } from "lucide-react"
 import type * as React from "react"
 
+import { inputClassName } from "@/components/app-config/form-styles"
 import { Button } from "@/components/ui/button"
 
 export function CreateWorkspaceDialog({
@@ -20,8 +21,8 @@ export function CreateWorkspaceDialog({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 bg-background/80 backdrop-blur-sm" />
-        <Dialog.Popup className="fixed top-1/2 left-1/2 flex w-[min(calc(100vw-2rem),24rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-md border bg-popover p-5 text-popover-foreground shadow-lg outline-none">
+        <Dialog.Backdrop className="fixed inset-0 bg-foreground/20 backdrop-blur-sm" />
+        <Dialog.Popup className="app-panel fixed top-1/2 left-1/2 flex w-[min(calc(100vw-2rem),24rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-lg bg-popover p-5 text-popover-foreground outline-none">
           <Dialog.Title className="text-base font-semibold">
             New workspace
           </Dialog.Title>
@@ -32,7 +33,7 @@ export function CreateWorkspaceDialog({
                 autoFocus
                 name="name"
                 required
-                className="h-9 rounded-md border border-input bg-background px-3 text-sm font-normal transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                className={inputClassName}
                 placeholder="Workspace name"
               />
             </label>
@@ -43,7 +44,7 @@ export function CreateWorkspaceDialog({
             ) : null}
             <div className="flex justify-end gap-2">
               <Dialog.Close
-                className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-background px-2.5 text-sm font-medium transition-colors hover:bg-muted"
+                className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-background px-2.5 text-sm font-medium transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
                 type="button"
               >
                 Cancel
@@ -140,8 +141,8 @@ function AppDetailsDialog({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 bg-background/80 backdrop-blur-sm" />
-        <Dialog.Popup className="fixed top-1/2 left-1/2 flex w-[min(calc(100vw-2rem),26rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-md border bg-popover p-5 text-popover-foreground shadow-lg outline-none">
+        <Dialog.Backdrop className="fixed inset-0 bg-foreground/20 backdrop-blur-sm" />
+        <Dialog.Popup className="app-panel fixed top-1/2 left-1/2 flex w-[min(calc(100vw-2rem),26rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-lg bg-popover p-5 text-popover-foreground outline-none">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <Dialog.Title className="text-base font-semibold">
@@ -170,7 +171,7 @@ function AppDetailsDialog({
                 name="name"
                 required
                 defaultValue={app?.name}
-                className="h-9 rounded-md border border-input bg-background px-3 text-sm font-normal transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                className={inputClassName}
                 placeholder="App name"
               />
             </label>
@@ -180,7 +181,7 @@ function AppDetailsDialog({
                 name="pathLocation"
                 required
                 defaultValue={app?.pathLocation}
-                className="h-9 rounded-md border border-input bg-background px-3 text-sm font-normal transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                className={inputClassName}
                 placeholder="C:\Workspace\GitHub\my-app"
               />
             </label>
@@ -191,7 +192,7 @@ function AppDetailsDialog({
             ) : null}
             <div className="flex justify-end gap-2">
               <Dialog.Close
-                className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-background px-2.5 text-sm font-medium transition-colors hover:bg-muted"
+                className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-background px-2.5 text-sm font-medium transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
                 type="button"
               >
                 Cancel

@@ -15,6 +15,14 @@ import type * as React from "react"
 
 import { getLocalAppUrl } from "@/components/app-config/run-tab"
 import { Button } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import type {
   AppProcessStatus,
   WorkspaceOverviewApp,
@@ -103,22 +111,23 @@ function WorkspaceAppCard({
   const appPreviewUrl = getLocalAppUrl(
     `${processStatus.stdout}\n${processStatus.stderr}`
   )
+  const processState = processStatus.status.toLowerCase()
 
   return (
-    <article className="flex min-h-44 flex-col gap-3 rounded-md border bg-card p-4 text-card-foreground">
+    <article className="app-panel flex min-h-48 flex-col gap-4 rounded-lg p-4 text-card-foreground transition-transform hover:-translate-y-0.5">
       <div className="flex items-start justify-between gap-3">
         <Link
           to="/workspaces/$workspaceId/apps/$appId"
           params={appParams}
           search={{ tab: "variables" }}
-          className="flex min-w-0 flex-1 items-start gap-2 rounded-md transition-colors hover:text-primary"
+          className="flex min-w-0 flex-1 items-start gap-3 rounded-md transition-colors hover:text-primary focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
         >
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-secondary text-primary">
             <FolderOpen />
           </div>
           <div className="min-w-0">
             <h2 className="truncate text-base font-medium">{app.name}</h2>
-            <p className="mt-1 truncate text-sm text-muted-foreground">
+            <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
               {app.pathLocation}
             </p>
           </div>
@@ -140,7 +149,7 @@ function WorkspaceAppCard({
         to="/workspaces/$workspaceId/apps/$appId"
         params={appParams}
         search={{ tab: "variables" }}
-        className="-mx-2 flex flex-1 flex-col rounded-md px-2 py-1 transition-colors hover:bg-muted/40"
+        className="flex flex-1 flex-col rounded-lg bg-muted/55 p-3 transition-colors hover:bg-secondary focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
       >
         <dl className="grid gap-3 text-sm">
           <ConfigStat
@@ -161,7 +170,11 @@ function WorkspaceAppCard({
           <ConfigStat
             icon={<Activity />}
             label="Status"
-            value={formatProcessStatus(processStatus)}
+            value={
+              <StatusPill status={processState}>
+                {formatProcessStatus(processStatus)}
+              </StatusPill>
+            }
           />
         </dl>
       </Link>
@@ -284,11 +297,16 @@ function ActiveVariableSetControl({
   variableSetNames: Array<string>
   onChange: (activeVariableSet: string) => void
 }) {
+  const variableSetItems = variableSetNames.map((setName) => ({
+    label: setName,
+    value: setName,
+  }))
+
   if (variableSetNames.length === 1) {
     return (
       <div className="flex min-w-0 items-center gap-2 text-sm">
         <span className="shrink-0 text-muted-foreground">Applied set</span>
-        <span className="min-w-0 flex-1 truncate rounded-md border border-input bg-muted px-2 py-1.5 font-medium">
+        <span className="min-w-0 flex-1 truncate rounded-lg border border-input bg-background px-2 py-1.5 font-mono text-xs font-semibold">
           {activeVariableSet}
         </span>
       </div>
@@ -298,18 +316,32 @@ function ActiveVariableSetControl({
   return (
     <label className="flex min-w-0 items-center gap-2 text-sm">
       <span className="shrink-0 text-muted-foreground">Applied set</span>
-      <select
-        className="h-8 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+      <Select
+        items={variableSetItems}
         value={activeVariableSet}
         disabled={disabled}
-        onChange={(event) => onChange(event.currentTarget.value)}
+        onValueChange={(value) => {
+          if (value) {
+            onChange(value)
+          }
+        }}
       >
-        {variableSetNames.map((setName) => (
-          <option key={setName} value={setName}>
-            {setName}
-          </option>
-        ))}
-      </select>
+        <SelectTrigger
+          className="h-8 min-w-0 flex-1 bg-background px-2 font-mono text-xs font-semibold"
+          size="sm"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent alignItemWithTrigger={false} align="start">
+          <SelectGroup>
+            {variableSetItems.map((item) => (
+              <SelectItem key={item.value} value={item.value}>
+                {item.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
     </label>
   )
 }
@@ -321,11 +353,11 @@ function ConfigStat({
 }: {
   icon: React.ReactNode
   label: string
-  value: string
+  value: React.ReactNode
 }) {
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground [&_svg]:size-3.5">
+      <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-background text-primary [&_svg]:size-3.5">
         {icon}
       </div>
       <dt className="shrink-0 text-muted-foreground">{label}</dt>
@@ -333,6 +365,20 @@ function ConfigStat({
         {value}
       </dd>
     </div>
+  )
+}
+
+function StatusPill({
+  children,
+  status,
+}: {
+  children: React.ReactNode
+  status: string
+}) {
+  return (
+    <span className="status-pill max-w-full truncate" data-status={status}>
+      {children}
+    </span>
   )
 }
 
