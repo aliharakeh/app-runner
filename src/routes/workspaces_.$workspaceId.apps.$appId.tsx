@@ -1,20 +1,40 @@
+import { Dialog } from "@base-ui/react/dialog"
 import { createFileRoute, useRouter } from "@tanstack/react-router"
 import { useServerFn } from "@tanstack/react-start"
-import { FileCode, Pencil, Play, Settings2, Variable } from "lucide-react"
+import {
+  FileCode,
+  Pencil,
+  Play,
+  Plus,
+  Settings2,
+  Trash2,
+  Variable,
+  X,
+} from "lucide-react"
 import * as React from "react"
 
+import { inputClassName } from "@/components/app-config/form-styles"
 import { RunTab } from "@/components/app-config/run-tab"
 import { TabButton } from "@/components/app-config/tab-button"
 import { TemplateTab } from "@/components/app-config/template-tab"
 import { VariablesTab } from "@/components/app-config/variables-tab"
 import { Button } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { EditAppDialog, getErrorMessage } from "@/components/workspace-dialogs"
 import {
+  createAppConfigSetFn,
   createTemplateConfigFn,
   createVariableConfigFn,
+  deleteAppConfigSetFn,
   deleteTemplateConfigFn,
   deleteVariableConfigFn,
-  deleteVariableSetFn,
   getAppProcessStatusesFn,
   getAppFn,
   listAppFilesFn,
@@ -63,10 +83,11 @@ function AppConfigPage() {
   const { workspaceId, appId } = Route.useParams()
   const { tab } = Route.useSearch()
   const { app, appFiles, processStatus } = Route.useLoaderData()
+  const createAppConfigSet = useServerFn(createAppConfigSetFn)
   const createVariableConfig = useServerFn(createVariableConfigFn)
   const updateVariableConfig = useServerFn(updateVariableConfigFn)
   const deleteVariableConfig = useServerFn(deleteVariableConfigFn)
-  const deleteVariableSet = useServerFn(deleteVariableSetFn)
+  const deleteAppConfigSet = useServerFn(deleteAppConfigSetFn)
   const updateApp = useServerFn(updateAppFn)
   const createTemplateConfig = useServerFn(createTemplateConfigFn)
   const updateTemplateConfig = useServerFn(updateTemplateConfigFn)
@@ -126,15 +147,28 @@ function AppConfigPage() {
   }
 
   const currentApp = selectedApp
-  const activeVariableSet = currentApp.activeVariableSet || "default"
-  const variableSetNames = getVariableSetNames(
+  const activeConfigSet = currentApp.activeVariableSet || "default"
+  const configSetNames = getConfigSetNames(
+    currentApp.configSets,
     currentApp.variableConfigs,
-    activeVariableSet
+    currentApp.templateConfigs,
+    currentApp.runConfigs,
+    activeConfigSet
   )
   const activeVariables = getVariablesForSet(
     currentApp.variableConfigs,
-    activeVariableSet
+    activeConfigSet
   )
+  const activeTemplates = getTemplatesForSet(
+    currentApp.templateConfigs,
+    activeConfigSet
+  )
+  const activeRunConfig = getRunConfigForSet(
+    currentApp.runConfigs,
+    activeConfigSet
+  )
+  const activeConfigItemCount =
+    activeVariables.length + activeTemplates.length + (activeRunConfig ? 1 : 0)
 
   function invalidateAfterSave() {
     return router.invalidate()
@@ -146,7 +180,7 @@ function AppConfigPage() {
     const form = event.currentTarget
     const formData = new FormData(form)
     const id = String(formData.get("id") ?? "")
-    const setName = String(formData.get("setName") ?? activeVariableSet)
+    const setName = String(formData.get("setName") ?? activeConfigSet)
     const name = String(formData.get("name") ?? "")
     const value = String(formData.get("value") ?? "")
 
@@ -174,17 +208,20 @@ function AppConfigPage() {
     event.preventDefault()
 
     const formData = new FormData(event.currentTarget)
-    const nextVariableSet = String(formData.get("setName") ?? "")
+    const nextConfigSet = String(formData.get("setName") ?? "")
 
     startTransition(async () => {
       try {
         setError("")
+        await createAppConfigSet({
+          data: { appId: currentApp.id, setName: nextConfigSet },
+        })
         await updateApp({
           data: {
             appId: currentApp.id,
             name: currentApp.name,
             pathLocation: currentApp.pathLocation,
-            activeVariableSet: nextVariableSet,
+            activeVariableSet: nextConfigSet,
           },
         })
         setNewVariableSetOpen(false)
@@ -195,7 +232,7 @@ function AppConfigPage() {
     })
   }
 
-  function handleActiveVariableSetChange(nextVariableSet: string) {
+  function handleActiveConfigSetChange(nextConfigSet: string) {
     startTransition(async () => {
       try {
         setError("")
@@ -204,7 +241,7 @@ function AppConfigPage() {
             appId: currentApp.id,
             name: currentApp.name,
             pathLocation: currentApp.pathLocation,
-            activeVariableSet: nextVariableSet,
+            activeVariableSet: nextConfigSet,
           },
         })
         await invalidateAfterSave()
@@ -256,8 +293,8 @@ function AppConfigPage() {
     startTransition(async () => {
       try {
         setError("")
-        await deleteVariableSet({
-          data: { appId: currentApp.id, setName: activeVariableSet },
+        await deleteAppConfigSet({
+          data: { appId: currentApp.id, setName: activeConfigSet },
         })
         await updateApp({
           data: {
@@ -284,6 +321,7 @@ function AppConfigPage() {
     const form = event.currentTarget
     const formData = new FormData(form)
     const id = String(formData.get("id") ?? "")
+    const setName = String(formData.get("setName") ?? activeConfigSet)
     const filePath = String(formData.get("filePath") ?? "")
     const templateContent = String(formData.get("templateContent") ?? "")
 
@@ -292,11 +330,22 @@ function AppConfigPage() {
         setError("")
         if (id) {
           await updateTemplateConfig({
-            data: { id, appId: currentApp.id, filePath, templateContent },
+            data: {
+              id,
+              appId: currentApp.id,
+              setName,
+              filePath,
+              templateContent,
+            },
           })
         } else {
           await createTemplateConfig({
-            data: { appId: currentApp.id, filePath, templateContent },
+            data: {
+              appId: currentApp.id,
+              setName,
+              filePath,
+              templateContent,
+            },
           })
           form.reset()
         }
@@ -324,13 +373,14 @@ function AppConfigPage() {
     event.preventDefault()
 
     const formData = new FormData(event.currentTarget)
+    const setName = String(formData.get("setName") ?? activeConfigSet)
     const command = String(formData.get("command") ?? "")
 
     startTransition(async () => {
       try {
         setError("")
         await upsertRunConfig({
-          data: { appId: currentApp.id, command },
+          data: { appId: currentApp.id, setName, command },
         })
         await invalidateAfterSave()
       } catch (saveError) {
@@ -371,6 +421,21 @@ function AppConfigPage() {
           <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
             {currentApp.pathLocation}
           </p>
+          <div className="mt-4">
+            <AppConfigSetControl
+              activeConfigSet={activeConfigSet}
+              configItemCount={activeConfigItemCount}
+              configSetNames={configSetNames}
+              deleteConfigSetOpen={deleteVariableSetOpen}
+              isPending={isPending}
+              newConfigSetOpen={newVariableSetOpen}
+              onDelete={handleDeleteVariableSet}
+              onDeleteOpenChange={setDeleteVariableSetOpen}
+              onNewOpenChange={setNewVariableSetOpen}
+              onNewSubmit={handleVariableSetSubmit}
+              onSetChange={handleActiveConfigSetChange}
+            />
+          </div>
         </div>
         <div className="flex gap-2">
           <Button
@@ -447,36 +512,31 @@ function AppConfigPage() {
       {tab === "variables" ? (
         <VariablesTab
           isPending={isPending}
-          activeVariableSet={activeVariableSet}
-          deleteVariableSetOpen={deleteVariableSetOpen}
-          newVariableSetOpen={newVariableSetOpen}
-          variableSetNames={variableSetNames}
+          activeVariableSet={activeConfigSet}
           variables={activeVariables}
           onDelete={handleDeleteVariable}
-          onDeleteSet={handleDeleteVariableSet}
-          onDeleteSetOpenChange={setDeleteVariableSetOpen}
-          onNewSetOpenChange={setNewVariableSetOpen}
-          onNewSetSubmit={handleVariableSetSubmit}
-          onSetChange={handleActiveVariableSetChange}
           onSubmit={handleVariableSubmit}
         />
       ) : null}
       {tab === "template" ? (
         <TemplateTab
+          activeConfigSet={activeConfigSet}
           appFiles={appFiles}
           isPending={isPending}
-          templates={currentApp.templateConfigs}
+          templates={activeTemplates}
           onDelete={handleDeleteTemplate}
           onSubmit={handleTemplateSubmit}
         />
       ) : null}
       {tab === "run" ? (
         <RunTab
-          command={currentApp.runConfig?.command ?? ""}
+          key={activeConfigSet}
+          activeConfigSet={activeConfigSet}
+          command={activeRunConfig?.command ?? ""}
           isPending={isPending}
           processStatus={processStatus}
-          runConfig={currentApp.runConfig}
-          templates={currentApp.templateConfigs}
+          runConfig={activeRunConfig}
+          templates={activeTemplates}
           variables={activeVariables}
           onRestart={() => handleProcessAction("restart")}
           onStart={() => handleProcessAction("start")}
@@ -492,15 +552,231 @@ function isConfigTab(value: unknown): value is ConfigTab {
   return configTabs.includes(value as ConfigTab)
 }
 
-function getVariableSetNames(
+function AppConfigSetControl({
+  activeConfigSet,
+  configItemCount,
+  configSetNames,
+  deleteConfigSetOpen,
+  isPending,
+  newConfigSetOpen,
+  onDelete,
+  onDeleteOpenChange,
+  onNewOpenChange,
+  onNewSubmit,
+  onSetChange,
+}: {
+  activeConfigSet: string
+  configItemCount: number
+  configSetNames: Array<string>
+  deleteConfigSetOpen: boolean
+  isPending: boolean
+  newConfigSetOpen: boolean
+  onDelete: () => void
+  onDeleteOpenChange: (open: boolean) => void
+  onNewOpenChange: (open: boolean) => void
+  onNewSubmit: (event: React.FormEvent<HTMLFormElement>) => void
+  onSetChange: (setName: string) => void
+}) {
+  const configSetItems = configSetNames.map((setName) => ({
+    label: setName,
+    value: setName,
+  }))
+
+  return (
+    <div className="flex flex-wrap items-end gap-2">
+      <NewConfigSetDialog
+        isPending={isPending}
+        open={newConfigSetOpen}
+        onOpenChange={onNewOpenChange}
+        onSubmit={onNewSubmit}
+      />
+      <DeleteConfigSetDialog
+        activeConfigSet={activeConfigSet}
+        configItemCount={configItemCount}
+        isPending={isPending}
+        open={deleteConfigSetOpen}
+        onDelete={onDelete}
+        onOpenChange={onDeleteOpenChange}
+      />
+      <label className="flex w-fit min-w-52 flex-col gap-2 text-sm font-medium">
+        Config set
+        <Select
+          items={configSetItems}
+          value={activeConfigSet}
+          disabled={isPending}
+          onValueChange={(value) => {
+            if (value) {
+              onSetChange(value)
+            }
+          }}
+        >
+          <SelectTrigger className="h-9 w-full bg-background shadow-inner shadow-muted/40">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent alignItemWithTrigger={false} align="start">
+            <SelectGroup>
+              {configSetItems.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      </label>
+      <Button
+        type="button"
+        variant="outline"
+        disabled={isPending}
+        onClick={() => onNewOpenChange(true)}
+      >
+        <Plus data-icon="inline-start" />
+        New set
+      </Button>
+      <Button
+        type="button"
+        variant="destructive"
+        disabled={isPending}
+        onClick={() => onDeleteOpenChange(true)}
+      >
+        <Trash2 data-icon="inline-start" />
+        Delete set
+      </Button>
+    </div>
+  )
+}
+
+function NewConfigSetDialog({
+  isPending,
+  open,
+  onOpenChange,
+  onSubmit,
+}: {
+  isPending: boolean
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void
+}) {
+  return (
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Portal>
+        <Dialog.Backdrop className="fixed inset-0 bg-foreground/20 backdrop-blur-sm" />
+        <Dialog.Popup className="app-panel fixed top-1/2 left-1/2 flex w-[min(calc(100vw-2rem),24rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-lg bg-popover p-5 text-popover-foreground outline-none">
+          <div className="flex items-start justify-between gap-3">
+            <Dialog.Title className="text-base font-semibold">
+              New config set
+            </Dialog.Title>
+            <Dialog.Close
+              aria-label="Close"
+              className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              type="button"
+            >
+              <X />
+            </Dialog.Close>
+          </div>
+          <form className="flex flex-col gap-4" onSubmit={onSubmit}>
+            <label className="flex flex-col gap-2 text-sm font-medium">
+              Set name
+              <input
+                autoFocus
+                name="setName"
+                required
+                className={inputClassName}
+                placeholder="staging"
+              />
+            </label>
+            <div className="flex justify-end gap-2">
+              <Dialog.Close
+                className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-background px-2.5 text-sm font-medium transition-colors hover:bg-muted"
+                type="button"
+              >
+                Cancel
+              </Dialog.Close>
+              <Button type="submit" disabled={isPending}>
+                Create set
+              </Button>
+            </div>
+          </form>
+        </Dialog.Popup>
+      </Dialog.Portal>
+    </Dialog.Root>
+  )
+}
+
+function DeleteConfigSetDialog({
+  activeConfigSet,
+  configItemCount,
+  isPending,
+  open,
+  onDelete,
+  onOpenChange,
+}: {
+  activeConfigSet: string
+  configItemCount: number
+  isPending: boolean
+  open: boolean
+  onDelete: () => void
+  onOpenChange: (open: boolean) => void
+}) {
+  return (
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Portal>
+        <Dialog.Backdrop className="fixed inset-0 bg-foreground/20 backdrop-blur-sm" />
+        <Dialog.Popup className="app-panel fixed top-1/2 left-1/2 flex w-[min(calc(100vw-2rem),24rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-lg bg-popover p-5 text-popover-foreground outline-none">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <Dialog.Title className="text-base font-semibold">
+                Delete config set
+              </Dialog.Title>
+              <Dialog.Description className="mt-1 text-sm text-muted-foreground">
+                Delete {activeConfigSet} and {configItemCount} config items.
+              </Dialog.Description>
+            </div>
+            <Dialog.Close
+              aria-label="Close"
+              className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              type="button"
+            >
+              <X />
+            </Dialog.Close>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Dialog.Close
+              className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-background px-2.5 text-sm font-medium transition-colors hover:bg-muted"
+              type="button"
+            >
+              Cancel
+            </Dialog.Close>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={isPending}
+              onClick={onDelete}
+            >
+              Delete set
+            </Button>
+          </div>
+        </Dialog.Popup>
+      </Dialog.Portal>
+    </Dialog.Root>
+  )
+}
+
+function getConfigSetNames(
+  configSets: Array<{ setName: string }>,
   variables: Array<{ setName: string }>,
+  templates: Array<{ setName: string }>,
+  runConfigs: Array<{ setName: string }>,
   activeSet = "default"
 ) {
   return Array.from(
     new Set([
       activeSet,
       "default",
+      ...configSets.map((configSet) => configSet.setName),
       ...variables.map((variable) => variable.setName),
+      ...templates.map((template) => template.setName),
+      ...runConfigs.map((runConfig) => runConfig.setName),
     ])
   ).sort()
 }
@@ -509,4 +785,18 @@ function getVariablesForSet<
   TVariable extends { setName: string; name: string; value: string },
 >(variables: Array<TVariable>, setName: string) {
   return variables.filter((variable) => variable.setName === setName)
+}
+
+function getTemplatesForSet<TTemplate extends { setName: string }>(
+  templates: Array<TTemplate>,
+  setName: string
+) {
+  return templates.filter((template) => template.setName === setName)
+}
+
+function getRunConfigForSet<TRunConfig extends { setName: string }>(
+  runConfigs: Array<TRunConfig>,
+  setName: string
+) {
+  return runConfigs.find((runConfig) => runConfig.setName === setName) ?? null
 }

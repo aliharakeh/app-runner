@@ -102,12 +102,22 @@ function WorkspaceAppCard({
   }
   const activeVariableSet = app.activeVariableSet || "default"
   const variableSetNames = getVariableSetNames(
+    app.configSets,
     app.variableConfigs,
+    app.templateConfigs,
+    app.runConfigs,
     activeVariableSet
   )
   const activeVariableCount = app.variableConfigs.filter(
     (variable) => variable.setName === activeVariableSet
   ).length
+  const activeTemplateCount = app.templateConfigs.filter(
+    (template) => template.setName === activeVariableSet
+  ).length
+  const activeRunConfig =
+    app.runConfigs.find(
+      (runConfig) => runConfig.setName === activeVariableSet
+    ) ?? null
   const appPreviewUrl = getLocalAppUrl(
     `${processStatus.stdout}\n${processStatus.stderr}`
   )
@@ -134,7 +144,7 @@ function WorkspaceAppCard({
         </Link>
         <AppLifecycleControls
           appPreviewUrl={appPreviewUrl}
-          commandConfigured={Boolean(app.runConfig?.command)}
+          commandConfigured={Boolean(activeRunConfig?.command)}
           isPending={isPending}
           processStatus={processStatus}
           onDelete={onDelete}
@@ -160,12 +170,12 @@ function WorkspaceAppCard({
           <ConfigStat
             icon={<FileCode />}
             label="Templates"
-            value={String(app.templateConfigs.length)}
+            value={String(activeTemplateCount)}
           />
           <ConfigStat
             icon={<Play />}
             label="Run command"
-            value={app.runConfig?.command || "Not configured"}
+            value={activeRunConfig?.command || "Not configured"}
           />
           <ConfigStat
             icon={<Activity />}
@@ -305,7 +315,7 @@ function ActiveVariableSetControl({
   if (variableSetNames.length === 1) {
     return (
       <div className="flex min-w-0 items-center gap-2 text-sm">
-        <span className="shrink-0 text-muted-foreground">Applied set</span>
+        <span className="shrink-0 text-muted-foreground">Config set</span>
         <span className="min-w-0 flex-1 truncate rounded-lg border border-input bg-background px-2 py-1.5 font-mono text-xs font-semibold">
           {activeVariableSet}
         </span>
@@ -315,7 +325,7 @@ function ActiveVariableSetControl({
 
   return (
     <label className="flex min-w-0 items-center gap-2 text-sm">
-      <span className="shrink-0 text-muted-foreground">Applied set</span>
+      <span className="shrink-0 text-muted-foreground">Config set</span>
       <Select
         items={variableSetItems}
         value={activeVariableSet}
@@ -391,14 +401,20 @@ function formatProcessStatus(status: { pid: number | null; status: string }) {
 }
 
 function getVariableSetNames(
+  configSets: Array<{ setName: string }>,
   variables: Array<{ setName: string }>,
+  templates: Array<{ setName: string }>,
+  runConfigs: Array<{ setName: string }>,
   activeSet = "default"
 ) {
   return Array.from(
     new Set([
       activeSet,
       "default",
+      ...configSets.map((configSet) => configSet.setName),
       ...variables.map((variable) => variable.setName),
+      ...templates.map((template) => template.setName),
+      ...runConfigs.map((runConfig) => runConfig.setName),
     ])
   ).sort()
 }

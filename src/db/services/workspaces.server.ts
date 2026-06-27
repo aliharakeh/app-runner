@@ -3,7 +3,14 @@ import "@tanstack/react-start/server-only"
 import { asc, eq, sql } from "drizzle-orm"
 
 import { db, ensureDatabaseSchema } from "../client.server"
-import { apps, templateConfigs, variableConfigs, workspaces } from "../schema"
+import {
+  appConfigSets,
+  apps,
+  runConfigs,
+  templateConfigs,
+  variableConfigs,
+  workspaces,
+} from "../schema"
 import type { NewWorkspace } from "../schema"
 
 export type WorkspaceWithApps = Awaited<
@@ -25,7 +32,7 @@ export async function createWorkspace(input: Pick<NewWorkspace, "name">) {
 export async function listWorkspaces() {
   ensureDatabaseSchema()
 
-  return db.query.workspaces.findMany({
+  const workspaceRows = await db.query.workspaces.findMany({
     orderBy: [asc(workspaces.name)],
     with: {
       apps: {
@@ -34,20 +41,30 @@ export async function listWorkspaces() {
           variableConfigs: {
             orderBy: [asc(variableConfigs.setName), asc(variableConfigs.name)],
           },
-          templateConfigs: {
-            orderBy: [asc(templateConfigs.filePath)],
+          configSets: {
+            orderBy: [asc(appConfigSets.setName)],
           },
-          runConfig: true,
+          templateConfigs: {
+            orderBy: [
+              asc(templateConfigs.setName),
+              asc(templateConfigs.filePath),
+            ],
+          },
+          runConfigs: {
+            orderBy: [asc(runConfigs.setName)],
+          },
         },
       },
     },
   })
+
+  return workspaceRows.map(withActiveAppRunConfigs)
 }
 
 export async function getWorkspace(id: number) {
   ensureDatabaseSchema()
 
-  return db.query.workspaces.findFirst({
+  const workspace = await db.query.workspaces.findFirst({
     where: eq(workspaces.id, id),
     with: {
       apps: {
@@ -56,14 +73,24 @@ export async function getWorkspace(id: number) {
           variableConfigs: {
             orderBy: [asc(variableConfigs.setName), asc(variableConfigs.name)],
           },
-          templateConfigs: {
-            orderBy: [asc(templateConfigs.filePath)],
+          configSets: {
+            orderBy: [asc(appConfigSets.setName)],
           },
-          runConfig: true,
+          templateConfigs: {
+            orderBy: [
+              asc(templateConfigs.setName),
+              asc(templateConfigs.filePath),
+            ],
+          },
+          runConfigs: {
+            orderBy: [asc(runConfigs.setName)],
+          },
         },
       },
     },
   })
+
+  return workspace ? withActiveAppRunConfigs(workspace) : workspace
 }
 
 export async function updateWorkspace(
@@ -95,4 +122,27 @@ export async function deleteWorkspace(id: number) {
     .get()
 
   return workspace
+}
+
+function withActiveAppRunConfigs<
+  TWorkspace extends {
+    apps: Array<{
+      activeVariableSet: string
+      runConfigs: Array<{ setName: string }>
+    }>
+  },
+>(workspace: TWorkspace) {
+  return {
+    ...workspace,
+    apps: workspace.apps.map((app) => {
+      const activeSet = app.activeVariableSet || "default"
+
+      return {
+        ...app,
+        runConfig:
+          app.runConfigs.find((runConfig) => runConfig.setName === activeSet) ??
+          null,
+      }
+    }),
+  }
 }

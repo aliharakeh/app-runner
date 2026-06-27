@@ -49,11 +49,35 @@ export const variableConfigs = sqliteTable("variable_configs", {
     .default(sql`CURRENT_TIMESTAMP`),
 })
 
+export const appConfigSets = sqliteTable(
+  "app_config_sets",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    appId: integer("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    setName: text("set_name").notNull().default("default"),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("app_config_sets_app_set_name_unique").on(
+      table.appId,
+      table.setName
+    ),
+  ]
+)
+
 export const templateConfigs = sqliteTable("template_configs", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   appId: integer("app_id")
     .notNull()
     .references(() => apps.id, { onDelete: "cascade" }),
+  setName: text("set_name").notNull().default("default"),
   filePath: text("file_path").notNull(),
   templateContent: text("template_content").notNull(),
   createdAt: text("created_at")
@@ -71,6 +95,7 @@ export const runConfigs = sqliteTable(
     appId: integer("app_id")
       .notNull()
       .references(() => apps.id, { onDelete: "cascade" }),
+    setName: text("set_name").notNull().default("default"),
     command: text("command").notNull(),
     lastRunPid: integer("last_run_pid"),
     lastRunStatus: text("last_run_status"),
@@ -88,7 +113,12 @@ export const runConfigs = sqliteTable(
       .notNull()
       .default(sql`CURRENT_TIMESTAMP`),
   },
-  (table) => [uniqueIndex("run_configs_app_id_unique").on(table.appId)]
+  (table) => [
+    uniqueIndex("run_configs_app_set_name_unique").on(
+      table.appId,
+      table.setName
+    ),
+  ]
 )
 
 export const workspacesRelations = relations(workspaces, ({ many }) => ({
@@ -101,8 +131,9 @@ export const appsRelations = relations(apps, ({ many, one }) => ({
     references: [workspaces.id],
   }),
   variableConfigs: many(variableConfigs),
+  configSets: many(appConfigSets),
   templateConfigs: many(templateConfigs),
-  runConfig: one(runConfigs),
+  runConfigs: many(runConfigs),
 }))
 
 export const variableConfigsRelations = relations(
@@ -114,6 +145,13 @@ export const variableConfigsRelations = relations(
     }),
   })
 )
+
+export const appConfigSetsRelations = relations(appConfigSets, ({ one }) => ({
+  app: one(apps, {
+    fields: [appConfigSets.appId],
+    references: [apps.id],
+  }),
+}))
 
 export const templateConfigsRelations = relations(
   templateConfigs,
@@ -136,6 +174,8 @@ export type Workspace = typeof workspaces.$inferSelect
 export type NewWorkspace = typeof workspaces.$inferInsert
 export type App = typeof apps.$inferSelect
 export type NewApp = typeof apps.$inferInsert
+export type AppConfigSet = typeof appConfigSets.$inferSelect
+export type NewAppConfigSet = typeof appConfigSets.$inferInsert
 export type VariableConfig = typeof variableConfigs.$inferSelect
 export type NewVariableConfig = typeof variableConfigs.$inferInsert
 export type TemplateConfig = typeof templateConfigs.$inferSelect

@@ -19,12 +19,14 @@ import {
 } from "@/components/ui/combobox"
 
 export function TemplateTab({
+  activeConfigSet,
   appFiles,
   isPending,
   templates,
   onDelete,
   onSubmit,
 }: {
+  activeConfigSet: string
   appFiles: Array<string>
   isPending: boolean
   templates: Array<AppTemplateConfig>
@@ -59,6 +61,7 @@ export function TemplateTab({
       </div>
 
       <TemplateDialog
+        activeConfigSet={activeConfigSet}
         appFiles={appFiles}
         isPending={isPending}
         mode="create"
@@ -70,6 +73,7 @@ export function TemplateTab({
       {editingTemplate ? (
         <TemplateDialog
           key={editingTemplate.id}
+          activeConfigSet={activeConfigSet}
           isPending={isPending}
           appFiles={appFiles}
           mode="edit"
@@ -136,6 +140,7 @@ export function TemplateTab({
 }
 
 function TemplateDialog({
+  activeConfigSet,
   appFiles,
   isPending,
   mode,
@@ -144,6 +149,7 @@ function TemplateDialog({
   onOpenChange,
   onSubmit,
 }: {
+  activeConfigSet: string
   appFiles: Array<string>
   isPending: boolean
   mode: "create" | "edit"
@@ -203,6 +209,7 @@ function TemplateDialog({
             {template ? (
               <input type="hidden" name="id" value={template.id} />
             ) : null}
+            <input type="hidden" name="setName" value={activeConfigSet} />
             <label className="flex flex-col gap-2 text-sm font-medium">
               Replaced file path
               <input type="hidden" name="filePath" value={filePath} />

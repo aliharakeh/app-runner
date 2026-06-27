@@ -18,8 +18,10 @@ export type WorkspaceOverviewApp = {
   pathLocation: string
   activeVariableSet: string
   runConfig?: { command: string } | null
+  runConfigs: Array<{ setName: string; command: string }>
+  configSets: Array<{ setName: string }>
   variableConfigs: Array<{ setName: string }>
-  templateConfigs: Array<unknown>
+  templateConfigs: Array<{ setName: string }>
 }
 
 export type WorkspaceOverviewWorkspace = {

@@ -37,6 +37,7 @@ type AppProcessRecord = AppProcessSnapshot & {
   persistTimer: ReturnType<typeof setTimeout> | null
   process: ChildProcessWithoutNullStreams | null
   requestedStop: boolean
+  setName: string
 }
 
 const processes = new Map<number, AppProcessRecord>()
@@ -54,7 +55,8 @@ export async function startAppProcess(appId: number) {
     throw new Error("App not found")
   }
 
-  const command = app.runConfig?.command.trim()
+  const activeSet = getActiveSetName(app)
+  const command = getActiveRunConfig(app)?.command.trim()
 
   if (!command) {
     throw new Error("Run command is not configured")
@@ -89,6 +91,7 @@ export async function startAppProcess(appId: number) {
     error: null,
     persistTimer: null,
     requestedStop: false,
+    setName: activeSet,
   }
 
   processes.set(appId, record)
@@ -224,7 +227,7 @@ async function persistLastRun(record: AppProcessRecord) {
     record.persistTimer = null
   }
 
-  await saveRunConfigLastRun(record.appId, {
+  await saveRunConfigLastRun(record.appId, record.setName, {
     lastRunPid: record.pid,
     lastRunStatus: record.status,
     lastRunStdout: record.stdout,
@@ -272,7 +275,9 @@ function createStoppedSnapshot(appId: number): AppProcessSnapshot {
 function applyTemplateFiles(
   app: NonNullable<Awaited<ReturnType<typeof getApp>>>
 ) {
-  if (!app.templateConfigs.length) {
+  const templateConfigs = getActiveTemplateConfigs(app)
+
+  if (!templateConfigs.length) {
     return []
   }
 
@@ -288,7 +293,7 @@ function applyTemplateFiles(
   })
   const mappedFiles: Array<{ backupPath: string; targetPath: string }> = []
 
-  for (const template of app.templateConfigs) {
+  for (const template of templateConfigs) {
     const targetPath = resolveInside(
       app.pathLocation,
       Handlebars.compile(template.filePath, { noEscape: true })(values)
@@ -315,10 +320,32 @@ function applyTemplateFiles(
 function getActiveVariableConfigs(
   app: NonNullable<Awaited<ReturnType<typeof getApp>>>
 ) {
-  const activeSet = app.activeVariableSet || "default"
+  const activeSet = getActiveSetName(app)
   return app.variableConfigs.filter(
     (variable) => variable.setName === activeSet
   )
+}
+
+function getActiveTemplateConfigs(
+  app: NonNullable<Awaited<ReturnType<typeof getApp>>>
+) {
+  const activeSet = getActiveSetName(app)
+  return app.templateConfigs.filter(
+    (template) => template.setName === activeSet
+  )
+}
+
+function getActiveRunConfig(
+  app: NonNullable<Awaited<ReturnType<typeof getApp>>>
+) {
+  const activeSet = getActiveSetName(app)
+  return (
+    app.runConfigs.find((runConfig) => runConfig.setName === activeSet) ?? null
+  )
+}
+
+function getActiveSetName(app: { activeVariableSet: string }) {
+  return app.activeVariableSet || "default"
 }
 
 async function rollbackTemplateFiles(

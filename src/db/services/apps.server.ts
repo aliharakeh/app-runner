@@ -6,7 +6,13 @@ import { normalizeAppPathLocation } from "@/server/app-paths.server"
 import { deleteTemplateBackup } from "@/server/template-backups.server"
 
 import { db, ensureDatabaseSchema } from "../client.server"
-import { apps, runConfigs, templateConfigs, variableConfigs } from "../schema"
+import {
+  appConfigSets,
+  apps,
+  runConfigs,
+  templateConfigs,
+  variableConfigs,
+} from "../schema"
 import type { NewApp } from "../schema"
 
 export async function createApp(
@@ -22,39 +28,58 @@ export async function createApp(
     })
     .returning()
     .get()
+
+  db.insert(appConfigSets)
+    .values({
+      appId: app.id,
+      setName: "default",
+    })
+    .onConflictDoNothing()
+    .run()
+
   return app
 }
 
 export async function listApps(workspaceId: number) {
   ensureDatabaseSchema()
 
-  return db.query.apps.findMany({
+  const workspaceApps = await db.query.apps.findMany({
     where: eq(apps.workspaceId, workspaceId),
     orderBy: [asc(apps.name)],
     with: {
       variableConfigs: {
         orderBy: [asc(variableConfigs.setName), asc(variableConfigs.name)],
       },
-      templateConfigs: {
-        orderBy: [asc(templateConfigs.filePath)],
+      configSets: {
+        orderBy: [asc(appConfigSets.setName)],
       },
-      runConfig: true,
+      templateConfigs: {
+        orderBy: [asc(templateConfigs.setName), asc(templateConfigs.filePath)],
+      },
+      runConfigs: {
+        orderBy: [asc(runConfigs.setName)],
+      },
     },
   })
+
+  return workspaceApps.map(withActiveRunConfig)
 }
 
 export async function getApp(id: number) {
   ensureDatabaseSchema()
 
-  return db.query.apps.findFirst({
+  const app = await db.query.apps.findFirst({
     where: eq(apps.id, id),
     with: {
       workspace: true,
       variableConfigs: true,
+      configSets: true,
       templateConfigs: true,
-      runConfig: true,
+      runConfigs: true,
     },
   })
+
+  return app ? withActiveRunConfig(app) : app
 }
 
 export async function updateApp(
@@ -121,6 +146,11 @@ export async function createAppWithConfig(input: {
       .returning()
       .get()
 
+    transaction.insert(appConfigSets).values({
+      appId: app.id,
+      setName: "default",
+    })
+
     if (input.variables?.length) {
       transaction.insert(variableConfigs).values(
         input.variables.map((variable) => ({
@@ -136,6 +166,7 @@ export async function createAppWithConfig(input: {
       transaction.insert(templateConfigs).values(
         input.templates.map((template) => ({
           appId: app.id,
+          setName: "default",
           filePath: template.filePath,
           templateContent: template.templateContent,
         }))
@@ -145,10 +176,27 @@ export async function createAppWithConfig(input: {
     if (input.runCommand) {
       transaction.insert(runConfigs).values({
         appId: app.id,
+        setName: "default",
         command: input.runCommand,
       })
     }
 
     return app
   })
+}
+
+function withActiveRunConfig<
+  TApp extends {
+    activeVariableSet: string
+    runConfigs: Array<{ setName: string }>
+  },
+>(app: TApp) {
+  const activeSet = app.activeVariableSet || "default"
+
+  return {
+    ...app,
+    runConfig:
+      app.runConfigs.find((runConfig) => runConfig.setName === activeSet) ??
+      null,
+  }
 }

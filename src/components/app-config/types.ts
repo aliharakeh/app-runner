@@ -7,11 +7,14 @@ export type AppVariableConfig = {
 
 export type AppTemplateConfig = {
   id: number
+  setName: string
   filePath: string
   templateContent: string
 }
 
 export type RunConfigLastRun = {
+  setName: string
+  command: string
   lastRunPid: number | null
   lastRunStatus: string | null
   lastRunStdout: string

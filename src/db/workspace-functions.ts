@@ -116,7 +116,7 @@ function parseVariableSetInput(input: {
   const setName = input.setName?.trim()
 
   if (!setName) {
-    throw new Error("Variable set is required")
+    throw new Error("Config set is required")
   }
 
   return { appId, setName }
@@ -124,10 +124,12 @@ function parseVariableSetInput(input: {
 
 function parseTemplateConfigInput(input: {
   appId?: number | string
+  setName?: string
   filePath?: string
   templateContent?: string
 }) {
   const { appId } = parseAppId(input)
+  const setName = input.setName?.trim() || "default"
   const filePath = input.filePath?.trim()
   const templateContent = input.templateContent?.trim()
 
@@ -139,21 +141,23 @@ function parseTemplateConfigInput(input: {
     throw new Error("Template content is required")
   }
 
-  return { appId, filePath, templateContent }
+  return { appId, setName, filePath, templateContent }
 }
 
 function parseRunConfigInput(input: {
   appId?: number | string
+  setName?: string
   command?: string
 }) {
   const { appId } = parseAppId(input)
+  const setName = input.setName?.trim() || "default"
   const command = input.command?.trim()
 
   if (!command) {
     throw new Error("Run command is required")
   }
 
-  return { appId, command }
+  return { appId, setName, command }
 }
 
 function parseAppIds(input: { appIds?: Array<number | string> }) {
@@ -254,8 +258,15 @@ export const listAppFilesFn = createServerFn({ method: "GET" })
 export const createVariableConfigFn = createServerFn({ method: "POST" })
   .validator(parseVariableConfigInput)
   .handler(async ({ data }) => {
+    const { createAppConfigSet } =
+      await import("./services/app-config-sets.server")
     const { createVariableConfig } =
       await import("./services/variable-configs.server")
+
+    await createAppConfigSet({
+      appId: data.appId,
+      setName: data.setName,
+    })
 
     return createVariableConfig(data)
   })
@@ -274,8 +285,15 @@ export const updateVariableConfigFn = createServerFn({ method: "POST" })
     })
   )
   .handler(async ({ data }) => {
+    const { createAppConfigSet } =
+      await import("./services/app-config-sets.server")
     const { updateVariableConfig } =
       await import("./services/variable-configs.server")
+
+    await createAppConfigSet({
+      appId: data.appId,
+      setName: data.setName,
+    })
 
     return updateVariableConfig(data.id, {
       appId: data.appId,
@@ -283,6 +301,15 @@ export const updateVariableConfigFn = createServerFn({ method: "POST" })
       name: data.name,
       value: data.value,
     })
+  })
+
+export const createAppConfigSetFn = createServerFn({ method: "POST" })
+  .validator(parseVariableSetInput)
+  .handler(async ({ data }) => {
+    const { createAppConfigSet } =
+      await import("./services/app-config-sets.server")
+
+    return createAppConfigSet(data)
   })
 
 export const deleteVariableConfigFn = createServerFn({ method: "POST" })
@@ -294,20 +321,40 @@ export const deleteVariableConfigFn = createServerFn({ method: "POST" })
     return deleteVariableConfig(data.id)
   })
 
-export const deleteVariableSetFn = createServerFn({ method: "POST" })
+export const deleteAppConfigSetFn = createServerFn({ method: "POST" })
   .validator(parseVariableSetInput)
   .handler(async ({ data }) => {
+    const { deleteAppConfigSet } =
+      await import("./services/app-config-sets.server")
     const { deleteVariableSet } =
       await import("./services/variable-configs.server")
+    const { deleteTemplateSet } =
+      await import("./services/template-configs.server")
+    const { deleteRunConfigForSet } =
+      await import("./services/run-configs.server")
 
-    return deleteVariableSet(data.appId, data.setName)
+    const [configSets, variables, templates, runConfigs] = await Promise.all([
+      deleteAppConfigSet(data.appId, data.setName),
+      deleteVariableSet(data.appId, data.setName),
+      deleteTemplateSet(data.appId, data.setName),
+      deleteRunConfigForSet(data.appId, data.setName),
+    ])
+
+    return { configSets, variables, templates, runConfigs }
   })
 
 export const createTemplateConfigFn = createServerFn({ method: "POST" })
   .validator(parseTemplateConfigInput)
   .handler(async ({ data }) => {
+    const { createAppConfigSet } =
+      await import("./services/app-config-sets.server")
     const { createTemplateConfig } =
       await import("./services/template-configs.server")
+
+    await createAppConfigSet({
+      appId: data.appId,
+      setName: data.setName,
+    })
 
     return createTemplateConfig(data)
   })
@@ -317,6 +364,7 @@ export const updateTemplateConfigFn = createServerFn({ method: "POST" })
     (input: {
       id?: number | string
       appId?: number | string
+      setName?: string
       filePath?: string
       templateContent?: string
     }) => ({
@@ -325,11 +373,19 @@ export const updateTemplateConfigFn = createServerFn({ method: "POST" })
     })
   )
   .handler(async ({ data }) => {
+    const { createAppConfigSet } =
+      await import("./services/app-config-sets.server")
     const { updateTemplateConfig } =
       await import("./services/template-configs.server")
 
+    await createAppConfigSet({
+      appId: data.appId,
+      setName: data.setName,
+    })
+
     return updateTemplateConfig(data.id, {
       appId: data.appId,
+      setName: data.setName,
       filePath: data.filePath,
       templateContent: data.templateContent,
     })
@@ -347,10 +403,20 @@ export const deleteTemplateConfigFn = createServerFn({ method: "POST" })
 export const upsertRunConfigFn = createServerFn({ method: "POST" })
   .validator(parseRunConfigInput)
   .handler(async ({ data }) => {
+    const { createAppConfigSet } =
+      await import("./services/app-config-sets.server")
     const { upsertRunConfigForApp } =
       await import("./services/run-configs.server")
 
-    return upsertRunConfigForApp(data.appId, { command: data.command })
+    await createAppConfigSet({
+      appId: data.appId,
+      setName: data.setName,
+    })
+
+    return upsertRunConfigForApp(data.appId, {
+      setName: data.setName,
+      command: data.command,
+    })
   })
 
 export const startAppProcessFn = createServerFn({ method: "POST" })

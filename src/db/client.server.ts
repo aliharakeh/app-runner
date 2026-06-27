@@ -51,9 +51,18 @@ export function ensureDatabaseSchema() {
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS app_config_sets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      app_id INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+      set_name TEXT NOT NULL DEFAULT 'default',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE TABLE IF NOT EXISTS template_configs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       app_id INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+      set_name TEXT NOT NULL DEFAULT 'default',
       file_path TEXT NOT NULL,
       template_content TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -63,6 +72,7 @@ export function ensureDatabaseSchema() {
     CREATE TABLE IF NOT EXISTS run_configs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       app_id INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+      set_name TEXT NOT NULL DEFAULT 'default',
       command TEXT NOT NULL,
       last_run_pid INTEGER,
       last_run_status TEXT,
@@ -77,8 +87,6 @@ export function ensureDatabaseSchema() {
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 
-    CREATE UNIQUE INDEX IF NOT EXISTS run_configs_app_id_unique
-      ON run_configs(app_id);
   `)
 
   ensureColumn("apps", "active_variable_set", "TEXT NOT NULL DEFAULT 'default'")
@@ -87,6 +95,12 @@ export function ensureDatabaseSchema() {
     "set_name",
     "TEXT NOT NULL DEFAULT 'default'"
   )
+  ensureColumn(
+    "template_configs",
+    "set_name",
+    "TEXT NOT NULL DEFAULT 'default'"
+  )
+  ensureColumn("run_configs", "set_name", "TEXT NOT NULL DEFAULT 'default'")
   ensureColumn("run_configs", "last_run_pid", "INTEGER")
   ensureColumn("run_configs", "last_run_status", "TEXT")
   ensureColumn("run_configs", "last_run_stdout", "TEXT NOT NULL DEFAULT ''")
@@ -96,6 +110,36 @@ export function ensureDatabaseSchema() {
   ensureColumn("run_configs", "last_run_exit_code", "INTEGER")
   ensureColumn("run_configs", "last_run_signal", "TEXT")
   ensureColumn("run_configs", "last_run_error", "TEXT")
+
+  sqlite.exec(`
+    DROP INDEX IF EXISTS run_configs_app_id_unique;
+
+    CREATE UNIQUE INDEX IF NOT EXISTS app_config_sets_app_set_name_unique
+      ON app_config_sets(app_id, set_name);
+
+    CREATE UNIQUE INDEX IF NOT EXISTS run_configs_app_set_name_unique
+      ON run_configs(app_id, set_name);
+
+    INSERT OR IGNORE INTO app_config_sets (app_id, set_name)
+      SELECT id, COALESCE(active_variable_set, 'default')
+      FROM apps;
+
+    INSERT OR IGNORE INTO app_config_sets (app_id, set_name)
+      SELECT id, 'default'
+      FROM apps;
+
+    INSERT OR IGNORE INTO app_config_sets (app_id, set_name)
+      SELECT app_id, set_name
+      FROM variable_configs;
+
+    INSERT OR IGNORE INTO app_config_sets (app_id, set_name)
+      SELECT app_id, set_name
+      FROM template_configs;
+
+    INSERT OR IGNORE INTO app_config_sets (app_id, set_name)
+      SELECT app_id, set_name
+      FROM run_configs;
+  `)
 
   schemaReady = true
 }

@@ -25,6 +25,7 @@ import type {
 import { Button } from "@/components/ui/button"
 
 export function RunTab({
+  activeConfigSet,
   command,
   isPending,
   processStatus,
@@ -36,6 +37,7 @@ export function RunTab({
   onStop,
   onSubmit,
 }: {
+  activeConfigSet: string
   command: string
   isPending: boolean
   processStatus: AppProcessSnapshot
@@ -68,6 +70,7 @@ export function RunTab({
         className="app-panel flex flex-col gap-4 rounded-lg p-4"
         onSubmit={onSubmit}
       >
+        <input type="hidden" name="setName" value={activeConfigSet} />
         <div className="flex flex-wrap items-start justify-between gap-3">
           <label className="flex min-w-60 flex-1 flex-col gap-2 text-sm font-medium">
             Run command
