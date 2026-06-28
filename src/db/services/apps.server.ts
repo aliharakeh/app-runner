@@ -48,13 +48,21 @@ export async function listApps(workspaceId: number) {
     orderBy: [asc(apps.name)],
     with: {
       variableConfigs: {
-        orderBy: [asc(variableConfigs.setName), asc(variableConfigs.name)],
+        orderBy: [
+          asc(variableConfigs.setName),
+          asc(variableConfigs.position),
+          asc(variableConfigs.name),
+        ],
       },
       configSets: {
         orderBy: [asc(appConfigSets.setName)],
       },
       templateConfigs: {
-        orderBy: [asc(templateConfigs.setName), asc(templateConfigs.filePath)],
+        orderBy: [
+          asc(templateConfigs.setName),
+          asc(templateConfigs.position),
+          asc(templateConfigs.filePath),
+        ],
       },
       runConfigs: {
         orderBy: [asc(runConfigs.setName)],
@@ -72,9 +80,21 @@ export async function getApp(id: number) {
     where: eq(apps.id, id),
     with: {
       workspace: true,
-      variableConfigs: true,
+      variableConfigs: {
+        orderBy: [
+          asc(variableConfigs.setName),
+          asc(variableConfigs.position),
+          asc(variableConfigs.name),
+        ],
+      },
       configSets: true,
-      templateConfigs: true,
+      templateConfigs: {
+        orderBy: [
+          asc(templateConfigs.setName),
+          asc(templateConfigs.position),
+          asc(templateConfigs.filePath),
+        ],
+      },
       runConfigs: true,
     },
   })
@@ -153,10 +173,11 @@ export async function createAppWithConfig(input: {
 
     if (input.variables?.length) {
       transaction.insert(variableConfigs).values(
-        input.variables.map((variable) => ({
+        input.variables.map((variable, position) => ({
           appId: app.id,
           setName: "default",
           name: variable.name,
+          position,
           value: variable.value,
         }))
       )
@@ -164,10 +185,11 @@ export async function createAppWithConfig(input: {
 
     if (input.templates?.length) {
       transaction.insert(templateConfigs).values(
-        input.templates.map((template) => ({
+        input.templates.map((template, position) => ({
           appId: app.id,
           setName: "default",
           filePath: template.filePath,
+          position,
           templateContent: template.templateContent,
         }))
       )

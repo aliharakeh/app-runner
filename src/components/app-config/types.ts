@@ -3,6 +3,7 @@ export type AppVariableConfig = {
   setName: string
   name: string
   value: string
+  position: number
 }
 
 export type AppTemplateConfig = {
@@ -10,6 +11,7 @@ export type AppTemplateConfig = {
   setName: string
   filePath: string
   templateContent: string
+  position: number
 }
 
 export type RunConfigLastRun = {

@@ -1,5 +1,7 @@
 import { createServerFn } from "@tanstack/react-start"
 
+type ConfigConflictChoice = "source" | "target"
+
 function parseWorkspaceName(input: { name?: string }) {
   const name = input.name?.trim()
 
@@ -122,6 +124,55 @@ function parseVariableSetInput(input: {
   return { appId, setName }
 }
 
+function parseAppConfigSetInput(input: {
+  appId?: number | string
+  setName?: string
+  sourceSetName?: string
+  copyVariables?: boolean | string
+  copyTemplates?: boolean | string
+  copyRunConfig?: boolean | string
+  variableConflictChoices?: Array<{
+    name?: string
+    choice?: string
+  }>
+  templateConflictChoices?: Array<{
+    filePath?: string
+    choice?: string
+  }>
+}) {
+  const { appId, setName } = parseVariableSetInput(input)
+  const sourceSetName = input.sourceSetName?.trim()
+  const copyVariables = parseFormBoolean(input.copyVariables)
+  const copyTemplates = parseFormBoolean(input.copyTemplates)
+  const copyRunConfig = parseFormBoolean(input.copyRunConfig)
+  const shouldCopy = copyVariables || copyTemplates || copyRunConfig
+  const variableConflictChoices = parseVariableConflictChoices(
+    input.variableConflictChoices
+  )
+  const templateConflictChoices = parseTemplateConflictChoices(
+    input.templateConflictChoices
+  )
+
+  if (shouldCopy && !sourceSetName) {
+    throw new Error("Source config set is required")
+  }
+
+  if (sourceSetName && sourceSetName === setName) {
+    throw new Error("Source and target config sets must be different")
+  }
+
+  return {
+    appId,
+    setName,
+    sourceSetName,
+    copyVariables,
+    copyTemplates,
+    copyRunConfig,
+    variableConflictChoices,
+    templateConflictChoices,
+  }
+}
+
 function parseTemplateConfigInput(input: {
   appId?: number | string
   setName?: string
@@ -160,6 +211,27 @@ function parseRunConfigInput(input: {
   return { appId, setName, command }
 }
 
+function parseConfigOrderInput(input: {
+  appId?: number | string
+  setName?: string
+  orderedIds?: Array<number | string>
+}) {
+  const { appId } = parseAppId(input)
+  const setName = input.setName?.trim() || "default"
+  const orderedIds = input.orderedIds?.map(Number) ?? []
+  const uniqueIds = new Set(orderedIds)
+
+  if (
+    !orderedIds.length ||
+    uniqueIds.size !== orderedIds.length ||
+    orderedIds.some((id) => !Number.isInteger(id) || id < 1)
+  ) {
+    throw new Error("Configuration order is required")
+  }
+
+  return { appId, setName, orderedIds }
+}
+
 function parseAppIds(input: { appIds?: Array<number | string> }) {
   const appIds = input.appIds?.map(Number) ?? []
 
@@ -171,6 +243,62 @@ function parseAppIds(input: { appIds?: Array<number | string> }) {
   }
 
   return { appIds }
+}
+
+function parseFormBoolean(value: boolean | string | undefined) {
+  return value === true || value === "true" || value === "on"
+}
+
+function parseVariableConflictChoices(
+  input:
+    | Array<{
+        name?: string
+        choice?: string
+      }>
+    | undefined
+) {
+  return (input ?? []).map((conflict) => {
+    const name = conflict.name?.trim()
+
+    if (!name) {
+      throw new Error("Variable conflict is required")
+    }
+
+    return {
+      name,
+      choice: parseConflictChoice(conflict.choice),
+    }
+  })
+}
+
+function parseTemplateConflictChoices(
+  input:
+    | Array<{
+        filePath?: string
+        choice?: string
+      }>
+    | undefined
+) {
+  return (input ?? []).map((conflict) => {
+    const filePath = conflict.filePath?.trim()
+
+    if (!filePath) {
+      throw new Error("Template conflict is required")
+    }
+
+    return {
+      filePath,
+      choice: parseConflictChoice(conflict.choice),
+    }
+  })
+}
+
+function parseConflictChoice(choice: string | undefined): ConfigConflictChoice {
+  if (choice === "source" || choice === "target") {
+    return choice
+  }
+
+  throw new Error("Conflict choice is required")
 }
 
 export const listWorkspacesFn = createServerFn({ method: "GET" }).handler(
@@ -303,13 +431,41 @@ export const updateVariableConfigFn = createServerFn({ method: "POST" })
     })
   })
 
-export const createAppConfigSetFn = createServerFn({ method: "POST" })
-  .validator(parseVariableSetInput)
+export const reorderVariableConfigsFn = createServerFn({ method: "POST" })
+  .validator(parseConfigOrderInput)
   .handler(async ({ data }) => {
-    const { createAppConfigSet } =
+    const { reorderVariableConfigs } =
+      await import("./services/variable-configs.server")
+
+    return reorderVariableConfigs(data)
+  })
+
+export const createAppConfigSetFn = createServerFn({ method: "POST" })
+  .validator(parseAppConfigSetInput)
+  .handler(async ({ data }) => {
+    const { createAppConfigSet, createAppConfigSetFromSet } =
       await import("./services/app-config-sets.server")
 
-    return createAppConfigSet(data)
+    if (
+      data.sourceSetName &&
+      (data.copyVariables || data.copyTemplates || data.copyRunConfig)
+    ) {
+      return createAppConfigSetFromSet({
+        appId: data.appId,
+        setName: data.setName,
+        sourceSetName: data.sourceSetName,
+        copyVariables: data.copyVariables,
+        copyTemplates: data.copyTemplates,
+        copyRunConfig: data.copyRunConfig,
+        variableConflictChoices: data.variableConflictChoices,
+        templateConflictChoices: data.templateConflictChoices,
+      })
+    }
+
+    return createAppConfigSet({
+      appId: data.appId,
+      setName: data.setName,
+    })
   })
 
 export const deleteVariableConfigFn = createServerFn({ method: "POST" })
@@ -389,6 +545,15 @@ export const updateTemplateConfigFn = createServerFn({ method: "POST" })
       filePath: data.filePath,
       templateContent: data.templateContent,
     })
+  })
+
+export const reorderTemplateConfigsFn = createServerFn({ method: "POST" })
+  .validator(parseConfigOrderInput)
+  .handler(async ({ data }) => {
+    const { reorderTemplateConfigs } =
+      await import("./services/template-configs.server")
+
+    return reorderTemplateConfigs(data)
   })
 
 export const deleteTemplateConfigFn = createServerFn({ method: "POST" })

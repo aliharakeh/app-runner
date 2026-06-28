@@ -4,11 +4,13 @@ import { cn } from "@/lib/utils"
 
 export function TabButton({
   active,
+  count,
   icon,
   label,
   onClick,
 }: {
   active: boolean
+  count?: number
   icon: React.ReactNode
   label: string
   onClick: () => void
@@ -25,7 +27,19 @@ export function TabButton({
       onClick={onClick}
     >
       {icon}
-      {label}
+      <span>{label}</span>
+      {count === undefined ? null : (
+        <span
+          className={cn(
+            "flex min-w-5 items-center justify-center rounded-full px-1.5 text-xs leading-5",
+            active
+              ? "bg-primary-foreground/20 text-primary-foreground"
+              : "bg-muted text-muted-foreground"
+          )}
+        >
+          {count}
+        </span>
+      )}
     </button>
   )
 }

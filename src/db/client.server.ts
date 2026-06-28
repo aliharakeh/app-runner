@@ -47,6 +47,7 @@ export function ensureDatabaseSchema() {
       set_name TEXT NOT NULL DEFAULT 'default',
       name TEXT NOT NULL,
       value TEXT NOT NULL,
+      position INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
@@ -65,6 +66,7 @@ export function ensureDatabaseSchema() {
       set_name TEXT NOT NULL DEFAULT 'default',
       file_path TEXT NOT NULL,
       template_content TEXT NOT NULL,
+      position INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
@@ -95,11 +97,13 @@ export function ensureDatabaseSchema() {
     "set_name",
     "TEXT NOT NULL DEFAULT 'default'"
   )
+  ensureColumn("variable_configs", "position", "INTEGER NOT NULL DEFAULT 0")
   ensureColumn(
     "template_configs",
     "set_name",
     "TEXT NOT NULL DEFAULT 'default'"
   )
+  ensureColumn("template_configs", "position", "INTEGER NOT NULL DEFAULT 0")
   ensureColumn("run_configs", "set_name", "TEXT NOT NULL DEFAULT 'default'")
   ensureColumn("run_configs", "last_run_pid", "INTEGER")
   ensureColumn("run_configs", "last_run_status", "TEXT")

@@ -1,8 +1,16 @@
 import { Dialog } from "@base-ui/react/dialog"
-import { ChevronDown, Pencil, Plus, Trash2, X } from "lucide-react"
+import {
+  ChevronDown,
+  GripVertical,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react"
 import * as React from "react"
 
 import { EmptyState } from "@/components/app-config/empty-state"
+import { reorderItemsById } from "@/components/app-config/reorder"
 import {
   getTemplateLanguage,
   highlightTemplateContent,
@@ -17,6 +25,7 @@ import {
   ComboboxItem,
   ComboboxList,
 } from "@/components/ui/combobox"
+import { cn } from "@/lib/utils"
 
 export function TemplateTab({
   activeConfigSet,
@@ -24,6 +33,7 @@ export function TemplateTab({
   isPending,
   templates,
   onDelete,
+  onReorder,
   onSubmit,
 }: {
   activeConfigSet: string
@@ -31,6 +41,7 @@ export function TemplateTab({
   isPending: boolean
   templates: Array<AppTemplateConfig>
   onDelete: (id: number) => void
+  onReorder: (orderedIds: Array<number>) => void
   onSubmit: (
     event: React.FormEvent<HTMLFormElement>,
     onSaved?: () => void
@@ -39,6 +50,35 @@ export function TemplateTab({
   const [isCreateOpen, setIsCreateOpen] = React.useState(false)
   const [editingTemplate, setEditingTemplate] =
     React.useState<AppTemplateConfig | null>(null)
+  const [orderedTemplates, setOrderedTemplates] = React.useState(templates)
+  const [draggedTemplateId, setDraggedTemplateId] = React.useState<
+    number | null
+  >(null)
+
+  React.useEffect(() => {
+    setOrderedTemplates(templates)
+  }, [templates])
+
+  function handleDrop(targetId: number) {
+    if (draggedTemplateId === null) {
+      return
+    }
+
+    const nextTemplates = reorderItemsById(
+      orderedTemplates,
+      draggedTemplateId,
+      targetId
+    )
+
+    setDraggedTemplateId(null)
+
+    if (nextTemplates === orderedTemplates) {
+      return
+    }
+
+    setOrderedTemplates(nextTemplates)
+    onReorder(nextTemplates.map((template) => template.id))
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -90,16 +130,51 @@ export function TemplateTab({
 
       {templates.length ? (
         <div className="flex flex-col gap-3">
-          {templates.map((template) => (
+          {orderedTemplates.map((template) => (
             <article
               key={template.id}
-              className="app-panel flex flex-col gap-3 rounded-lg p-4"
+              className={cn(
+                "app-panel flex flex-col gap-3 rounded-lg p-4",
+                draggedTemplateId === template.id && "opacity-60"
+              )}
+              onDragOver={(event) => {
+                if (draggedTemplateId !== null) {
+                  event.preventDefault()
+                }
+              }}
+              onDrop={(event) => {
+                event.preventDefault()
+                handleDrop(template.id)
+              }}
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="truncate text-sm font-semibold">
-                    {template.filePath}
-                  </h3>
+                <div className="flex min-w-0 items-start gap-2">
+                  <Button
+                    className="cursor-grab active:cursor-grabbing"
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    draggable
+                    disabled={isPending}
+                    aria-label={`Drag ${template.filePath}`}
+                    title="Drag to reorder"
+                    onDragStart={(event) => {
+                      event.dataTransfer.effectAllowed = "move"
+                      event.dataTransfer.setData(
+                        "text/plain",
+                        String(template.id)
+                      )
+                      setDraggedTemplateId(template.id)
+                    }}
+                    onDragEnd={() => setDraggedTemplateId(null)}
+                  >
+                    <GripVertical />
+                  </Button>
+                  <div className="min-w-0">
+                    <h3 className="truncate text-sm font-semibold">
+                      {template.filePath}
+                    </h3>
+                  </div>
                 </div>
                 <div className="flex shrink-0 gap-2">
                   <Button

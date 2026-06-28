@@ -41,6 +41,7 @@ export const variableConfigs = sqliteTable("variable_configs", {
   setName: text("set_name").notNull().default("default"),
   name: text("name").notNull(),
   value: text("value").notNull(),
+  position: integer("position").notNull().default(0),
   createdAt: text("created_at")
     .notNull()
     .default(sql`CURRENT_TIMESTAMP`),
@@ -80,6 +81,7 @@ export const templateConfigs = sqliteTable("template_configs", {
   setName: text("set_name").notNull().default("default"),
   filePath: text("file_path").notNull(),
   templateContent: text("template_content").notNull(),
+  position: integer("position").notNull().default(0),
   createdAt: text("created_at")
     .notNull()
     .default(sql`CURRENT_TIMESTAMP`),
