@@ -1,0 +1,89 @@
+{
+    "/dwd_web/**": {
+        "target": "https://dev15.trinov.com",
+        "secure": true,
+        "changeOrigin": true,
+        "logLevel": "debug"
+    },
+    "/api/rte/ref/**": {
+        "target": "https://dev15.trinov.com",
+        "secure": true,
+        "changeOrigin": true,
+        "logLevel": "debug"
+    },
+    "/api/user/**": {
+        "target": "https://dev15.trinov.com",
+        "secure": true,
+        "changeOrigin": true,
+        "logLevel": "debug"
+    },
+    "/api/sso/**": {
+        "target": "https://dev15.trinov.com",
+        "secure": true,
+        "changeOrigin": true,
+        "logLevel": "debug"
+    },
+    "/api/report/**": {
+        "target": "https://dev15.trinov.com",
+        "secure": true,
+        "changeOrigin": true,
+        "logLevel": "debug"
+    },
+    "/api/requeteur/**": {
+        "target": "https://dev15.trinov.com",
+        "secure": true,
+        "changeOrigin": true,
+        "logLevel": "debug"
+    },
+    "/api/raccrochage/**": {
+        "target": "https://dev15.trinov.com",
+        "secure": true,
+        "changeOrigin": true,
+        "logLevel": "debug"
+    },
+    "/api/reconciliation/**": {
+        "target": "https://dev15.trinov.com",
+        "secure": true,
+        "changeOrigin": true,
+        "logLevel": "debug"
+    },
+    "/api/controle-facturation/**": {
+        "target": "https://dev15.trinov.com",
+        "secure": true,
+        "changeOrigin": true,
+        "logLevel": "debug"
+    },
+    "/api/notification/**": {
+        "target": "https://dev15.trinov.com",
+        "secure": true,
+        "changeOrigin": true,
+        "logLevel": "debug"
+    },
+    "/api/ticket/**": {
+        "target": "https://dev15.trinov.com",
+        "secure": true,
+        "changeOrigin": true,
+        "logLevel": "debug"
+    },
+    "/api/admin/**": {
+        "target": "https://dev15.trinov.com",
+        "secure": true,
+        "changeOrigin": true,
+        "logLevel": "debug"
+    },
+    "/aura/ws": {
+        "target": "ws://127.0.0.1:8091",
+        "secure": false,
+        "ws": true,
+        "logLevel": "debug",
+        "pathRewrite": {
+            "^/aura/ws": "/api/admin/aura/ws"
+        }
+    },
+    "/v1/traces/**": {
+        "target": "https://monitoring.trinov.com",
+        "secure": true,
+        "changeOrigin": true,
+        "logLevel": "debug"
+    }
+}
