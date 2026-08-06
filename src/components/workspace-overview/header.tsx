@@ -1,4 +1,4 @@
-import { Plus, Trash2 } from "lucide-react"
+import { Pencil, Plus, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 
@@ -7,11 +7,13 @@ export function WorkspaceOverviewHeader({
   workspaceName,
   onAddApp,
   onDeleteWorkspace,
+  onRenameWorkspace,
 }: {
   appCount: number
   workspaceName: string
   onAddApp: () => void
   onDeleteWorkspace: () => void
+  onRenameWorkspace: () => void
 }) {
   return (
     <div className="app-panel flex flex-wrap items-start justify-between gap-4 rounded-lg p-4 sm:p-5">
@@ -30,6 +32,10 @@ export function WorkspaceOverviewHeader({
         <Button type="button" variant="outline" onClick={onAddApp}>
           <Plus data-icon="inline-start" />
           Add app
+        </Button>
+        <Button type="button" variant="outline" onClick={onRenameWorkspace}>
+          <Pencil data-icon="inline-start" />
+          Rename
         </Button>
         <Button type="button" variant="destructive" onClick={onDeleteWorkspace}>
           <Trash2 data-icon="inline-start" />

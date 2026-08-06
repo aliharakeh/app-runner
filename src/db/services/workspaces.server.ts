@@ -112,7 +112,7 @@ export async function updateWorkspace(
   const workspace = db
     .update(workspaces)
     .set({
-      ...input,
+      ...(input.name !== undefined ? { name: input.name.trim() } : {}),
       updatedAt: sql`CURRENT_TIMESTAMP`,
     })
     .where(eq(workspaces.id, id))

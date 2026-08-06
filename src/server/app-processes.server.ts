@@ -9,6 +9,10 @@ import path from "node:path"
 
 import { getApp } from "@/db/services/apps.server"
 import { validateAppPathLocation } from "@/server/app-paths.server"
+import {
+  notifyAppProcessUpdate,
+  scheduleAppProcessLogUpdate,
+} from "@/server/app-process-events.server"
 import { getTemplateBackupRoot } from "@/server/template-backups.server"
 
 const MAX_LOG_LENGTH = 20_000
@@ -123,6 +127,8 @@ export async function startAppProcess(appId: number) {
     spawnChild(record, commands[0], env, app.pathLocation)
   }
 
+  notifyAppProcessUpdate(appId)
+
   return toSnapshot(record)
 }
 
@@ -140,6 +146,8 @@ export async function stopAppProcess(appId: number) {
       .map((child) => killProcessTree(child.process!))
   )
   await finishRecord(record)
+
+  notifyAppProcessUpdate(appId)
 
   return toSnapshot(record)
 }
@@ -191,19 +199,23 @@ function spawnChild(
   }
 
   record.children.push(entry)
+  notifyAppProcessUpdate(record.appId)
 
   child.stdout.on("data", (chunk: Buffer) => {
     entry.stdout = appendLog(entry.stdout, chunk.toString())
+    scheduleAppProcessLogUpdate(record.appId)
   })
 
   child.stderr.on("data", (chunk: Buffer) => {
     entry.stderr = appendLog(entry.stderr, chunk.toString())
+    scheduleAppProcessLogUpdate(record.appId)
   })
 
   child.on("error", (error) => {
     entry.error = error.message
     entry.status = record.requestedStop ? "stopped" : "error"
     entry.process = null
+    notifyAppProcessUpdate(record.appId)
     void onChildFinished(record, entry)
   })
 
@@ -216,6 +228,7 @@ function spawnChild(
         ? "exited"
         : "error"
     entry.process = null
+    notifyAppProcessUpdate(record.appId)
     void onChildFinished(record, entry)
   })
 
@@ -315,6 +328,8 @@ async function finishRecordOnce(record: AppProcessRecord) {
       target.error = appendError(target.error, message)
     }
   }
+
+  notifyAppProcessUpdate(record.appId)
 }
 
 function toSnapshot(record: AppProcessRecord): AppProcessSnapshot {

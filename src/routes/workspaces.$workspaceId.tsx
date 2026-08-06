@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import {
   CreateAppDialog,
   EditAppDialog,
+  EditWorkspaceDialog,
   getErrorMessage,
 } from "@/components/workspace-dialogs"
 import { WorkspaceAppsGrid } from "@/components/workspace-overview/app-card"
@@ -26,7 +27,9 @@ import {
   startAppProcessFn,
   stopAppProcessFn,
   updateAppFn,
+  updateWorkspaceFn,
 } from "@/db/workspace-functions"
+import { useWorkspaceProcessStreams } from "@/hooks/use-app-process-stream"
 
 export const Route = createFileRoute("/workspaces/$workspaceId")({
   loader: async ({ params }) => {
@@ -47,11 +50,13 @@ export const Route = createFileRoute("/workspaces/$workspaceId")({
 function WorkspaceOverview() {
   const router = useRouter()
   const navigate = Route.useNavigate()
-  const { processStatuses, workspace } = Route.useLoaderData()
+  const { processStatuses: loaderProcessStatuses, workspace } =
+    Route.useLoaderData()
   const createApp = useServerFn(createAppFn)
   const updateApp = useServerFn(updateAppFn)
   const deleteApp = useServerFn(deleteAppFn)
   const deleteWorkspace = useServerFn(deleteWorkspaceFn)
+  const updateWorkspace = useServerFn(updateWorkspaceFn)
   const startAppProcess = useServerFn(startAppProcessFn)
   const stopAppProcess = useServerFn(stopAppProcessFn)
   const restartAppProcess = useServerFn(restartAppProcessFn)
@@ -62,28 +67,18 @@ function WorkspaceOverview() {
   const [deletingApp, setDeletingApp] =
     React.useState<WorkspaceOverviewApp | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
+  const [renameDialogOpen, setRenameDialogOpen] = React.useState(false)
   const [appError, setAppError] = React.useState("")
   const [editAppError, setEditAppError] = React.useState("")
   const [deleteAppError, setDeleteAppError] = React.useState("")
   const [deleteError, setDeleteError] = React.useState("")
+  const [renameError, setRenameError] = React.useState("")
   const [processError, setProcessError] = React.useState("")
 
   const selectedWorkspace = workspace
-  const hasRunningApps = Object.values(processStatuses).some(
-    (status) => status.status === "running"
+  const { processStatuses, updateProcessStatus } = useWorkspaceProcessStreams(
+    loaderProcessStatuses
   )
-
-  React.useEffect(() => {
-    if (!hasRunningApps) {
-      return
-    }
-
-    const intervalId = window.setInterval(() => {
-      void router.invalidate()
-    }, 2000)
-
-    return () => window.clearInterval(intervalId)
-  }, [hasRunningApps, router])
 
   if (!selectedWorkspace) {
     return (
@@ -156,6 +151,30 @@ function WorkspaceOverview() {
     })
   }
 
+  function handleRenameWorkspace(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    const formData = new FormData(event.currentTarget)
+    const workspaceId = Number(formData.get("workspaceId"))
+    const name = String(formData.get("name") ?? "")
+
+    startTransition(async () => {
+      try {
+        setRenameError("")
+        await updateWorkspace({
+          data: {
+            workspaceId,
+            name,
+          },
+        })
+        setRenameDialogOpen(false)
+        await router.invalidate()
+      } catch (error) {
+        setRenameError(getErrorMessage(error))
+      }
+    })
+  }
+
   function handleDeleteWorkspace() {
     const workspaceId = selectedWorkspace!.id
 
@@ -196,14 +215,13 @@ function WorkspaceOverview() {
     startTransition(async () => {
       try {
         setProcessError("")
-        if (action === "start") {
-          await startAppProcess({ data: { appId } })
-        } else if (action === "stop") {
-          await stopAppProcess({ data: { appId } })
-        } else {
-          await restartAppProcess({ data: { appId } })
-        }
-        await router.invalidate()
+        const snapshot =
+          action === "start"
+            ? await startAppProcess({ data: { appId } })
+            : action === "stop"
+              ? await stopAppProcess({ data: { appId } })
+              : await restartAppProcess({ data: { appId } })
+        updateProcessStatus(appId, snapshot)
       } catch (error) {
         setProcessError(getErrorMessage(error))
       }
@@ -222,6 +240,10 @@ function WorkspaceOverview() {
         onDeleteWorkspace={() => {
           setDeleteError("")
           setDeleteDialogOpen(true)
+        }}
+        onRenameWorkspace={() => {
+          setRenameError("")
+          setRenameDialogOpen(true)
         }}
       />
 
@@ -310,6 +332,19 @@ function WorkspaceOverview() {
             setDeleteAppError("")
           }
         }}
+      />
+      <EditWorkspaceDialog
+        error={renameError}
+        isPending={isPending}
+        open={renameDialogOpen}
+        workspace={selectedWorkspace}
+        onOpenChange={(open) => {
+          setRenameDialogOpen(open)
+          if (!open) {
+            setRenameError("")
+          }
+        }}
+        onSubmit={handleRenameWorkspace}
       />
       <DeleteWorkspaceDialog
         error={deleteError}

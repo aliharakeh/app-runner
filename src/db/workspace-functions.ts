@@ -68,6 +68,20 @@ function parseWorkspaceId(input: { workspaceId?: number | string }) {
   return { workspaceId }
 }
 
+function parseWorkspaceUpdateInput(input: {
+  workspaceId?: number | string
+  name?: string
+}) {
+  const { workspaceId } = parseWorkspaceId(input)
+  const name = input.name?.trim()
+
+  if (!name) {
+    throw new Error("Workspace name is required")
+  }
+
+  return { workspaceId, name }
+}
+
 function parseAppId(input: { appId?: number | string }) {
   const appId = Number(input.appId)
 
@@ -335,6 +349,14 @@ export const getWorkspaceFn = createServerFn({ method: "GET" })
     const { getWorkspace } = await import("./services/workspaces.server")
 
     return getWorkspace(data.workspaceId)
+  })
+
+export const updateWorkspaceFn = createServerFn({ method: "POST" })
+  .validator(parseWorkspaceUpdateInput)
+  .handler(async ({ data }) => {
+    const { updateWorkspace } = await import("./services/workspaces.server")
+
+    return updateWorkspace(data.workspaceId, { name: data.name })
   })
 
 export const deleteWorkspaceFn = createServerFn({ method: "POST" })
@@ -628,4 +650,27 @@ export const getAppProcessStatusesFn = createServerFn({ method: "GET" })
       await import("@/server/app-processes.server")
 
     return getAppProcessStatuses(data.appIds)
+  })
+
+function parsePickFolderInput(input: { initialPath?: string }) {
+  const initialPath = input.initialPath?.trim()
+
+  return { initialPath: initialPath || undefined }
+}
+
+export const pickFolderFn = createServerFn({ method: "POST" })
+  .validator(parsePickFolderInput)
+  .handler(async ({ data }) => {
+    const { pickFolder, validateAppPathLocation } =
+      await import("@/server/app-paths.server")
+
+    const selected = await pickFolder(data.initialPath)
+
+    if (!selected) {
+      return { path: null as string | null }
+    }
+
+    validateAppPathLocation(selected)
+
+    return { path: selected }
   })

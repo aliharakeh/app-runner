@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { EditAppDialog, getErrorMessage } from "@/components/workspace-dialogs"
+import { useAppProcessStream } from "@/hooks/use-app-process-stream"
 import {
   createAppConfigSetFn,
   createTemplateConfigFn,
@@ -85,7 +86,12 @@ function AppConfigPage() {
   const navigate = Route.useNavigate()
   const { workspaceId, appId } = Route.useParams()
   const { tab } = Route.useSearch()
-  const { app, appFiles, processStatus } = Route.useLoaderData()
+  const { app, appFiles, processStatus: loaderProcessStatus } =
+    Route.useLoaderData()
+  const processStatus = useAppProcessStream(
+    Number(appId),
+    loaderProcessStatus
+  )
   const createAppConfigSet = useServerFn(createAppConfigSetFn)
   const createVariableConfig = useServerFn(createVariableConfigFn)
   const updateVariableConfig = useServerFn(updateVariableConfigFn)
@@ -118,19 +124,6 @@ function AppConfigPage() {
     app && app.workspaceId === routeWorkspaceId && app.id === routeAppId
       ? app
       : null
-  const isProcessRunning = processStatus.status === "running"
-
-  React.useEffect(() => {
-    if (!isProcessRunning) {
-      return
-    }
-
-    const intervalId = window.setInterval(() => {
-      void router.invalidate()
-    }, 2000)
-
-    return () => window.clearInterval(intervalId)
-  }, [isProcessRunning, router])
 
   if (!selectedApp) {
     return (
@@ -545,7 +538,6 @@ function AppConfigPage() {
         } else {
           await restartAppProcess({ data: { appId: currentApp.id } })
         }
-        await invalidateAfterSave()
       } catch (processError) {
         setError(getErrorMessage(processError))
       }

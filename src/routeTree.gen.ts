@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WorkspacesWorkspaceIdRouteImport } from './routes/workspaces.$workspaceId'
 import { Route as WorkspacesWorkspaceIdAppsAppIdRouteImport } from './routes/workspaces_.$workspaceId.apps.$appId'
+import { Route as ApiAppsAppIdProcessStreamRouteImport } from './routes/api.apps.$appId.process-stream'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -29,21 +30,30 @@ const WorkspacesWorkspaceIdAppsAppIdRoute =
     path: '/workspaces/$workspaceId/apps/$appId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiAppsAppIdProcessStreamRoute =
+  ApiAppsAppIdProcessStreamRouteImport.update({
+    id: '/api/apps/$appId/process-stream',
+    path: '/api/apps/$appId/process-stream',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/workspaces/$workspaceId': typeof WorkspacesWorkspaceIdRoute
+  '/api/apps/$appId/process-stream': typeof ApiAppsAppIdProcessStreamRoute
   '/workspaces/$workspaceId/apps/$appId': typeof WorkspacesWorkspaceIdAppsAppIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/workspaces/$workspaceId': typeof WorkspacesWorkspaceIdRoute
+  '/api/apps/$appId/process-stream': typeof ApiAppsAppIdProcessStreamRoute
   '/workspaces/$workspaceId/apps/$appId': typeof WorkspacesWorkspaceIdAppsAppIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/workspaces/$workspaceId': typeof WorkspacesWorkspaceIdRoute
+  '/api/apps/$appId/process-stream': typeof ApiAppsAppIdProcessStreamRoute
   '/workspaces_/$workspaceId/apps/$appId': typeof WorkspacesWorkspaceIdAppsAppIdRoute
 }
 export interface FileRouteTypes {
@@ -51,19 +61,26 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/workspaces/$workspaceId'
+    | '/api/apps/$appId/process-stream'
     | '/workspaces/$workspaceId/apps/$appId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/workspaces/$workspaceId' | '/workspaces/$workspaceId/apps/$appId'
+  to:
+    | '/'
+    | '/workspaces/$workspaceId'
+    | '/api/apps/$appId/process-stream'
+    | '/workspaces/$workspaceId/apps/$appId'
   id:
     | '__root__'
     | '/'
     | '/workspaces/$workspaceId'
+    | '/api/apps/$appId/process-stream'
     | '/workspaces_/$workspaceId/apps/$appId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   WorkspacesWorkspaceIdRoute: typeof WorkspacesWorkspaceIdRoute
+  ApiAppsAppIdProcessStreamRoute: typeof ApiAppsAppIdProcessStreamRoute
   WorkspacesWorkspaceIdAppsAppIdRoute: typeof WorkspacesWorkspaceIdAppsAppIdRoute
 }
 
@@ -90,12 +107,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspacesWorkspaceIdAppsAppIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/apps/$appId/process-stream': {
+      id: '/api/apps/$appId/process-stream'
+      path: '/api/apps/$appId/process-stream'
+      fullPath: '/api/apps/$appId/process-stream'
+      preLoaderRoute: typeof ApiAppsAppIdProcessStreamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   WorkspacesWorkspaceIdRoute: WorkspacesWorkspaceIdRoute,
+  ApiAppsAppIdProcessStreamRoute: ApiAppsAppIdProcessStreamRoute,
   WorkspacesWorkspaceIdAppsAppIdRoute: WorkspacesWorkspaceIdAppsAppIdRoute,
 }
 export const routeTree = rootRouteImport

@@ -1,6 +1,8 @@
 import "@tanstack/react-start/server-only"
 
+import { spawn } from "node:child_process"
 import fs from "node:fs"
+import os from "node:os"
 import path from "node:path"
 import ignore from "ignore"
 
@@ -81,4 +83,140 @@ function collectFiles(
 
 function toGitignorePath(filePath: string) {
   return filePath.split(path.sep).join("/")
+}
+
+export async function pickFolder(initialPath?: string): Promise<string | null> {
+  const platform = os.platform()
+
+  if (platform === "win32") {
+    return pickFolderWindows(initialPath)
+  }
+
+  if (platform === "darwin") {
+    return pickFolderMac()
+  }
+
+  return pickFolderLinux()
+}
+
+async function pickFolderWindows(initialPath?: string): Promise<string | null> {
+  const script = [
+    "Add-Type -AssemblyName System.Windows.Forms",
+    "$browser = New-Object System.Windows.Forms.FolderBrowserDialog",
+    "$browser.Description = 'Select app folder'",
+    "$browser.UseDescriptionForTitle = $true",
+    "$initial = $env:APP_RUNNER_INITIAL_PATH",
+    "if ($initial) { $browser.SelectedPath = $initial }",
+    "$result = $browser.ShowDialog()",
+    "if ($result -eq [System.Windows.Forms.DialogResult]::OK) {",
+    "  [Console]::Out.Write($browser.SelectedPath)",
+    "}",
+  ].join("; ")
+
+  return runDialogCommand(
+    "powershell",
+    [
+      "-NoProfile",
+      "-STA",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-Command",
+      script,
+    ],
+    initialPath ? { APP_RUNNER_INITIAL_PATH: initialPath } : undefined
+  )
+}
+
+async function pickFolderMac(): Promise<string | null> {
+  return runDialogCommand("osascript", [
+    "-e",
+    'POSIX path of (choose folder with prompt "Select app folder")',
+  ])
+}
+
+async function pickFolderLinux(): Promise<string | null> {
+  try {
+    return await runDialogCommand("zenity", [
+      "--file-selection",
+      "--directory",
+      "--title=Select app folder",
+    ])
+  } catch (error) {
+    if (!isCommandNotFoundError(error)) {
+      throw error
+    }
+  }
+
+  try {
+    return await runDialogCommand("kdialog", [
+      "--getexistingdirectory",
+      ".",
+      "--title",
+      "Select app folder",
+    ])
+  } catch (error) {
+    if (isCommandNotFoundError(error)) {
+      throw new Error(
+        "No folder picker found. Install zenity or kdialog to browse for folders on Linux."
+      )
+    }
+
+    throw error
+  }
+}
+
+function runDialogCommand(
+  command: string,
+  args: Array<string>,
+  extraEnv?: Record<string, string>
+): Promise<string | null> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      env: extraEnv ? { ...process.env, ...extraEnv } : process.env,
+      windowsHide: true,
+      stdio: ["ignore", "pipe", "pipe"],
+    })
+
+    let stdout = ""
+    let stderr = ""
+
+    child.stdout.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString()
+    })
+
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString()
+    })
+
+    child.on("error", reject)
+
+    child.on("close", (code) => {
+      const result = stdout.trim()
+
+      if (code === 0 && result) {
+        resolve(result)
+        return
+      }
+
+      if (!result) {
+        resolve(null)
+        return
+      }
+
+      reject(
+        new Error(
+          stderr.trim() ||
+            `Folder picker failed with exit code ${code ?? "unknown"}`
+        )
+      )
+    })
+  })
+}
+
+function isCommandNotFoundError(error: unknown) {
+  return (
+    error instanceof Error &&
+    "code" in error &&
+    (error as NodeJS.ErrnoException).code === "ENOENT"
+  )
 }
