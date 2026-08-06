@@ -9,7 +9,6 @@ import {
   Pencil,
   Play,
   RefreshCcw,
-  Server,
   Square,
   Terminal,
   Trash2,
@@ -165,11 +164,6 @@ function WorkspaceAppCard({
         className="flex flex-1 flex-col rounded-lg bg-muted/55 p-3 transition-colors hover:bg-secondary focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
       >
         <dl className="grid gap-3 text-sm">
-          <ConfigStat
-            icon={<Server />}
-            label="Config set"
-            value={activeVariableSet}
-          />
           <ConfigStat
             icon={<Activity />}
             label="Status"
