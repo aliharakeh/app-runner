@@ -1,15 +1,18 @@
 import { Link } from "@tanstack/react-router"
 import {
   Activity,
+  CircleAlert,
+  Clock,
   ExternalLink,
-  FileCode,
   FolderOpen,
+  Hash,
   Pencil,
   Play,
   RefreshCcw,
+  Server,
   Square,
+  Terminal,
   Trash2,
-  Variable,
 } from "lucide-react"
 import type * as React from "react"
 
@@ -27,6 +30,7 @@ import type {
   AppProcessStatus,
   WorkspaceOverviewApp,
 } from "@/components/workspace-overview/types"
+import { cn } from "@/lib/utils"
 
 export function WorkspaceAppsGrid({
   apps,
@@ -108,20 +112,19 @@ function WorkspaceAppCard({
     app.runConfigs,
     activeVariableSet
   )
-  const activeVariableCount = app.variableConfigs.filter(
-    (variable) => variable.setName === activeVariableSet
-  ).length
-  const activeTemplateCount = app.templateConfigs.filter(
-    (template) => template.setName === activeVariableSet
-  ).length
   const activeRunConfig =
     app.runConfigs.find(
       (runConfig) => runConfig.setName === activeVariableSet
     ) ?? null
-  const appPreviewUrl = getLocalAppUrl(
+  const detectedPreviewUrl = getLocalAppUrl(
     `${processStatus.stdout}\n${processStatus.stderr}`
   )
   const processState = processStatus.status.toLowerCase()
+  const isRunning = processState === "running"
+  const appPreviewUrl = isRunning ? detectedPreviewUrl : null
+  const uptimeLabel = formatUptime(processStatus.startedAt)
+  const exitLabel = formatExitInfo(processStatus)
+  const errorLabel = formatErrorInfo(processStatus)
 
   return (
     <article className="app-panel flex min-h-48 flex-col gap-4 rounded-lg p-4 text-card-foreground transition-transform hover:-translate-y-0.5">
@@ -163,19 +166,9 @@ function WorkspaceAppCard({
       >
         <dl className="grid gap-3 text-sm">
           <ConfigStat
-            icon={<Variable />}
-            label="Active variables"
-            value={String(activeVariableCount)}
-          />
-          <ConfigStat
-            icon={<FileCode />}
-            label="Templates"
-            value={String(activeTemplateCount)}
-          />
-          <ConfigStat
-            icon={<Play />}
-            label="Run command"
-            value={activeRunConfig?.command || "Not configured"}
+            icon={<Server />}
+            label="Config set"
+            value={activeVariableSet}
           />
           <ConfigStat
             icon={<Activity />}
@@ -186,6 +179,41 @@ function WorkspaceAppCard({
               </StatusPill>
             }
           />
+          {isRunning && processStatus.pid ? (
+            <>
+              <ConfigStat
+                icon={<Hash />}
+                label="PID"
+                value={String(processStatus.pid)}
+              />
+              {uptimeLabel && (
+                <ConfigStat
+                  icon={<Clock />}
+                  label="Uptime"
+                  value={uptimeLabel}
+                />
+              )}
+            </>
+          ) : (
+            exitLabel && (
+              <ConfigStat
+                icon={<Terminal />}
+                label="Last run"
+                value={exitLabel}
+              />
+            )
+          )}
+          {errorLabel && (
+            <ConfigStat
+              icon={<CircleAlert />}
+              label="Last error"
+              value={
+                <span className="text-destructive" title={errorLabel.full}>
+                  {errorLabel.short}
+                </span>
+              }
+            />
+          )}
         </dl>
       </Link>
       <ActiveVariableSetControl
@@ -219,16 +247,54 @@ function AppLifecycleControls({
   onStart: () => void
   onStop: () => void
 }) {
-  const isRunning = processStatus.status === "running"
+  const state = processStatus.status.toLowerCase()
+  const isRunning = state === "running"
+  const isFailed = state === "failed" || state === "error" || state === "exited"
+  const canStart = !isPending && !isRunning && commandConfigured
+  const canStop = !isPending && isRunning
+  const canRestart = !isPending && commandConfigured
+  const canModify = !isPending && !isRunning
+
+  const runTitle = isRunning
+    ? "Already running"
+    : !commandConfigured
+      ? "No run command configured"
+      : isPending
+        ? "Working…"
+        : "Run app"
+  const stopTitle = isRunning ? "Stop app" : "Not running"
+  const restartTitle = !commandConfigured
+    ? "No run command configured"
+    : isRunning
+      ? "Restart app"
+      : "Start app"
+  const editTitle = isRunning ? "Stop the app to edit" : "Edit app"
+  const deleteTitle = isRunning ? "Stop the app to delete" : "Delete app"
 
   return (
     <div className="flex shrink-0 items-center gap-1">
+      <span
+        role="status"
+        aria-label={`Process status: ${state}`}
+        title={`Status: ${state}`}
+        className={cn(
+          "mr-0.5 size-2 shrink-0 rounded-full",
+          isRunning && "animate-pulse bg-emerald-500",
+          isFailed && "bg-destructive",
+          !isRunning && !isFailed && "bg-muted-foreground/40"
+        )}
+      />
       <Button
         type="button"
         size="icon-xs"
+        variant="outline"
         aria-label="Run app"
-        title="Run"
-        disabled={isPending || isRunning || !commandConfigured}
+        title={runTitle}
+        disabled={!canStart}
+        className={cn(
+          canStart &&
+            "border-transparent bg-emerald-600 text-white hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400"
+        )}
         onClick={onStart}
       >
         <Play />
@@ -240,6 +306,10 @@ function AppLifecycleControls({
         aria-label="Open web preview"
         title={appPreviewUrl ? `Open ${appPreviewUrl}` : "No local web preview"}
         disabled={!appPreviewUrl}
+        className={cn(
+          appPreviewUrl &&
+            "border-transparent bg-blue-600 text-white hover:bg-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400"
+        )}
         onClick={() => {
           if (appPreviewUrl) {
             window.open(appPreviewUrl, "_blank", "noopener,noreferrer")
@@ -253,8 +323,13 @@ function AppLifecycleControls({
         size="icon-xs"
         variant="outline"
         aria-label="Stop app"
-        title="Stop"
-        disabled={isPending || !isRunning}
+        title={stopTitle}
+        disabled={!canStop}
+        className={cn(
+          "border-transparent bg-red-600/10 text-white hover:bg-red-600/20 dark:bg-red-500/10 dark:hover:bg-red-500/20",
+          canStop &&
+            "bg-red-600 text-white hover:bg-red-500 dark:bg-red-500 dark:hover:bg-red-400"
+        )}
         onClick={onStop}
       >
         <Square />
@@ -264,8 +339,13 @@ function AppLifecycleControls({
         size="icon-xs"
         variant="outline"
         aria-label="Restart app"
-        title="Restart"
-        disabled={isPending || !commandConfigured}
+        title={restartTitle}
+        disabled={!canRestart}
+        className={cn(
+          canRestart &&
+            isRunning &&
+            "border-transparent bg-amber-500 text-white hover:bg-amber-400 dark:bg-amber-500 dark:hover:bg-amber-400"
+        )}
         onClick={onRestart}
       >
         <RefreshCcw />
@@ -275,8 +355,8 @@ function AppLifecycleControls({
         size="icon-xs"
         variant="outline"
         aria-label="Edit app"
-        title="Edit"
-        disabled={isPending || isRunning}
+        title={editTitle}
+        disabled={!canModify}
         onClick={onEdit}
       >
         <Pencil />
@@ -286,8 +366,8 @@ function AppLifecycleControls({
         size="icon-xs"
         variant="destructive"
         aria-label="Delete app"
-        title="Delete"
-        disabled={isPending || isRunning}
+        title={deleteTitle}
+        disabled={!canModify}
         onClick={onDelete}
       >
         <Trash2 />
@@ -398,6 +478,79 @@ function formatProcessStatus(status: { pid: number | null; status: string }) {
   }
 
   return status.status
+}
+
+function formatUptime(startedAt: string | null): string | null {
+  if (!startedAt) {
+    return null
+  }
+  const start = new Date(startedAt).getTime()
+  if (Number.isNaN(start)) {
+    return null
+  }
+  const elapsed = Date.now() - start
+  if (elapsed < 0) {
+    return null
+  }
+  const seconds = Math.floor(elapsed / 1000)
+  if (seconds < 60) {
+    return `${seconds}s`
+  }
+  const minutes = Math.floor(seconds / 60)
+  const remainingSeconds = seconds % 60
+  if (minutes < 60) {
+    return `${minutes}m ${remainingSeconds}s`
+  }
+  const hours = Math.floor(minutes / 60)
+  const remainingMinutes = minutes % 60
+  return `${hours}h ${remainingMinutes}m`
+}
+
+function formatExitInfo(status: {
+  status: string
+  exitCode: number | null
+  signal: string | null
+  stoppedAt: string | null
+  error: string | null
+}): string | null {
+  if (status.status === "running" || status.status === "stopped") {
+    return null
+  }
+  const parts: Array<string> = []
+  if (status.exitCode !== null) {
+    parts.push(`exit ${status.exitCode}`)
+  }
+  if (status.signal) {
+    parts.push(`signal ${status.signal}`)
+  }
+  if (status.error) {
+    parts.push(status.error)
+  }
+  return parts.length > 0 ? parts.join(" · ") : null
+}
+
+function formatErrorInfo(status: {
+  status: string
+  stderr: string
+  error: string | null
+}): { short: string; full: string } | null {
+  if (status.status !== "error" && status.status !== "failed") {
+    return null
+  }
+
+  const lines = status.stderr
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+  const full =
+    lines.length > 0 ? lines.slice(-5).join("\n") : (status.error ?? null)
+
+  if (!full) {
+    return null
+  }
+
+  const short = lines.at(-1) ?? status.error ?? full
+  return { short, full }
 }
 
 function getVariableSetNames(

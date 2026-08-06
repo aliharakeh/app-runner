@@ -76,15 +76,16 @@ export function ensureDatabaseSchema() {
       app_id INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
       set_name TEXT NOT NULL DEFAULT 'default',
       command TEXT NOT NULL,
-      last_run_pid INTEGER,
-      last_run_status TEXT,
-      last_run_stdout TEXT NOT NULL DEFAULT '',
-      last_run_stderr TEXT NOT NULL DEFAULT '',
-      last_run_started_at TEXT,
-      last_run_stopped_at TEXT,
-      last_run_exit_code INTEGER,
-      last_run_signal TEXT,
-      last_run_error TEXT,
+      mode TEXT NOT NULL DEFAULT 'series',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS run_config_commands (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      run_config_id INTEGER NOT NULL REFERENCES run_configs(id) ON DELETE CASCADE,
+      command TEXT NOT NULL,
+      position INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
@@ -105,15 +106,7 @@ export function ensureDatabaseSchema() {
   )
   ensureColumn("template_configs", "position", "INTEGER NOT NULL DEFAULT 0")
   ensureColumn("run_configs", "set_name", "TEXT NOT NULL DEFAULT 'default'")
-  ensureColumn("run_configs", "last_run_pid", "INTEGER")
-  ensureColumn("run_configs", "last_run_status", "TEXT")
-  ensureColumn("run_configs", "last_run_stdout", "TEXT NOT NULL DEFAULT ''")
-  ensureColumn("run_configs", "last_run_stderr", "TEXT NOT NULL DEFAULT ''")
-  ensureColumn("run_configs", "last_run_started_at", "TEXT")
-  ensureColumn("run_configs", "last_run_stopped_at", "TEXT")
-  ensureColumn("run_configs", "last_run_exit_code", "INTEGER")
-  ensureColumn("run_configs", "last_run_signal", "TEXT")
-  ensureColumn("run_configs", "last_run_error", "TEXT")
+  ensureColumn("run_configs", "mode", "TEXT NOT NULL DEFAULT 'series'")
 
   sqlite.exec(`
     DROP INDEX IF EXISTS run_configs_app_id_unique;
@@ -123,6 +116,14 @@ export function ensureDatabaseSchema() {
 
     CREATE UNIQUE INDEX IF NOT EXISTS run_configs_app_set_name_unique
       ON run_configs(app_id, set_name);
+
+    CREATE UNIQUE INDEX IF NOT EXISTS run_config_commands_config_position_unique
+      ON run_config_commands(run_config_id, position);
+
+    INSERT OR IGNORE INTO run_config_commands (run_config_id, command, position)
+      SELECT id, command, 0
+      FROM run_configs
+      WHERE command != '';
 
     INSERT OR IGNORE INTO app_config_sets (app_id, set_name)
       SELECT id, COALESCE(active_variable_set, 'default')

@@ -1,10 +1,12 @@
 import "@tanstack/react-start/server-only"
 
-import { and, eq, sql } from "drizzle-orm"
+import { and, asc, eq, sql } from "drizzle-orm"
 
 import { db, ensureDatabaseSchema } from "../client.server"
-import { runConfigs } from "../schema"
 import type { NewRunConfig } from "../schema"
+import { runConfigCommands, runConfigs } from "../schema"
+
+export type RunMode = "series" | "parallel"
 
 export async function createRunConfig(
   input: Pick<NewRunConfig, "appId" | "setName" | "command">
@@ -28,6 +30,11 @@ export async function getRunConfigForApp(appId: number, setName = "default") {
 
   return db.query.runConfigs.findFirst({
     where: and(eq(runConfigs.appId, appId), eq(runConfigs.setName, setName)),
+    with: {
+      commands: {
+        orderBy: [asc(runConfigCommands.position)],
+      },
+    },
   })
 }
 
@@ -52,53 +59,59 @@ export async function updateRunConfig(
 
 export async function upsertRunConfigForApp(
   appId: number,
-  input: Pick<NewRunConfig, "setName" | "command">
+  input: {
+    setName: string
+    mode: RunMode
+    commands: Array<string>
+  }
 ) {
   ensureDatabaseSchema()
 
-  const runConfig = db
-    .insert(runConfigs)
-    .values({ appId, setName: input.setName, command: input.command })
-    .onConflictDoUpdate({
-      target: [runConfigs.appId, runConfigs.setName],
-      set: {
-        command: input.command,
-        updatedAt: sql`CURRENT_TIMESTAMP`,
-      },
-    })
-    .returning()
-    .get()
+  const commands = input.commands
+    .map((command) => command.trim())
+    .filter(Boolean)
+  const primaryCommand = commands[0] ?? ""
 
-  return runConfig
-}
+  const runConfig = db.transaction((transaction) => {
+    const config = transaction
+      .insert(runConfigs)
+      .values({
+        appId,
+        setName: input.setName,
+        command: primaryCommand,
+        mode: input.mode,
+      })
+      .onConflictDoUpdate({
+        target: [runConfigs.appId, runConfigs.setName],
+        set: {
+          command: primaryCommand,
+          mode: input.mode,
+          updatedAt: sql`CURRENT_TIMESTAMP`,
+        },
+      })
+      .returning()
+      .get()
 
-export async function saveRunConfigLastRun(
-  appId: number,
-  setName: string,
-  input: Pick<
-    NewRunConfig,
-    | "lastRunPid"
-    | "lastRunStatus"
-    | "lastRunStdout"
-    | "lastRunStderr"
-    | "lastRunStartedAt"
-    | "lastRunStoppedAt"
-    | "lastRunExitCode"
-    | "lastRunSignal"
-    | "lastRunError"
-  >
-) {
-  ensureDatabaseSchema()
+    transaction
+      .delete(runConfigCommands)
+      .where(eq(runConfigCommands.runConfigId, config.id))
+      .run()
 
-  const runConfig = db
-    .update(runConfigs)
-    .set({
-      ...input,
-      updatedAt: sql`CURRENT_TIMESTAMP`,
-    })
-    .where(and(eq(runConfigs.appId, appId), eq(runConfigs.setName, setName)))
-    .returning()
-    .get()
+    if (commands.length) {
+      transaction
+        .insert(runConfigCommands)
+        .values(
+          commands.map((command, position) => ({
+            runConfigId: config.id,
+            command,
+            position,
+          }))
+        )
+        .run()
+    }
+
+    return config
+  })
 
   return runConfig
 }

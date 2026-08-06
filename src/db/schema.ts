@@ -99,15 +99,7 @@ export const runConfigs = sqliteTable(
       .references(() => apps.id, { onDelete: "cascade" }),
     setName: text("set_name").notNull().default("default"),
     command: text("command").notNull(),
-    lastRunPid: integer("last_run_pid"),
-    lastRunStatus: text("last_run_status"),
-    lastRunStdout: text("last_run_stdout").notNull().default(""),
-    lastRunStderr: text("last_run_stderr").notNull().default(""),
-    lastRunStartedAt: text("last_run_started_at"),
-    lastRunStoppedAt: text("last_run_stopped_at"),
-    lastRunExitCode: integer("last_run_exit_code"),
-    lastRunSignal: text("last_run_signal"),
-    lastRunError: text("last_run_error"),
+    mode: text("mode").notNull().default("series"),
     createdAt: text("created_at")
       .notNull()
       .default(sql`CURRENT_TIMESTAMP`),
@@ -119,6 +111,30 @@ export const runConfigs = sqliteTable(
     uniqueIndex("run_configs_app_set_name_unique").on(
       table.appId,
       table.setName
+    ),
+  ]
+)
+
+export const runConfigCommands = sqliteTable(
+  "run_config_commands",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    runConfigId: integer("run_config_id")
+      .notNull()
+      .references(() => runConfigs.id, { onDelete: "cascade" }),
+    command: text("command").notNull(),
+    position: integer("position").notNull().default(0),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("run_config_commands_config_position_unique").on(
+      table.runConfigId,
+      table.position
     ),
   ]
 )
@@ -165,12 +181,23 @@ export const templateConfigsRelations = relations(
   })
 )
 
-export const runConfigsRelations = relations(runConfigs, ({ one }) => ({
+export const runConfigsRelations = relations(runConfigs, ({ one, many }) => ({
   app: one(apps, {
     fields: [runConfigs.appId],
     references: [apps.id],
   }),
+  commands: many(runConfigCommands),
 }))
+
+export const runConfigCommandsRelations = relations(
+  runConfigCommands,
+  ({ one }) => ({
+    runConfig: one(runConfigs, {
+      fields: [runConfigCommands.runConfigId],
+      references: [runConfigs.id],
+    }),
+  })
+)
 
 export type Workspace = typeof workspaces.$inferSelect
 export type NewWorkspace = typeof workspaces.$inferInsert
@@ -184,3 +211,5 @@ export type TemplateConfig = typeof templateConfigs.$inferSelect
 export type NewTemplateConfig = typeof templateConfigs.$inferInsert
 export type RunConfig = typeof runConfigs.$inferSelect
 export type NewRunConfig = typeof runConfigs.$inferInsert
+export type RunConfigCommand = typeof runConfigCommands.$inferSelect
+export type NewRunConfigCommand = typeof runConfigCommands.$inferInsert

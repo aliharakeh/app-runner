@@ -1,11 +1,14 @@
 import { Dialog } from "@base-ui/react/dialog"
+import { Tabs } from "@base-ui/react/tabs"
 import {
   ChevronDown,
   ExternalLink,
   Eye,
   Play,
+  Plus,
   RefreshCcw,
   Square,
+  Trash2,
   X,
 } from "lucide-react"
 import * as React from "react"
@@ -17,16 +20,25 @@ import {
   renderGeneratedTemplate,
 } from "@/components/app-config/template-syntax"
 import type {
+  AppProcessChildSnapshot,
   AppProcessSnapshot,
   AppTemplateConfig,
   AppVariableConfig,
-  RunConfigLastRun,
+  RunConfig,
 } from "@/components/app-config/types"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 export function RunTab({
   activeConfigSet,
-  command,
   isPending,
   processStatus,
   runConfig,
@@ -35,27 +47,68 @@ export function RunTab({
   onRestart,
   onStart,
   onStop,
-  onSubmit,
+  onSave,
 }: {
   activeConfigSet: string
-  command: string
   isPending: boolean
   processStatus: AppProcessSnapshot
-  runConfig: RunConfigLastRun | null
+  runConfig: RunConfig | null
   templates: Array<AppTemplateConfig>
   variables: Array<AppVariableConfig>
   onRestart: () => void
   onStart: () => void
   onStop: () => void
-  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void
+  onSave: (input: {
+    mode: "series" | "parallel"
+    commands: Array<string>
+  }) => void
 }) {
-  const lastRunConfig = runConfig?.lastRunStartedAt ? runConfig : null
-  const appPreviewUrl = lastRunConfig
-    ? getLocalAppUrl(
-        `${lastRunConfig.lastRunStdout}\n${lastRunConfig.lastRunStderr}`
-      )
-    : null
+  const appPreviewUrl =
+    processStatus.status === "running"
+      ? getLocalAppUrl(`${processStatus.stdout}\n${processStatus.stderr}`)
+      : null
   const [previewOpen, setPreviewOpen] = React.useState(false)
+
+  const initialCommands = React.useMemo(() => {
+    const fromChildren = (runConfig?.commands ?? [])
+      .map((child) => child.command)
+      .filter(Boolean)
+    if (fromChildren.length) {
+      return fromChildren
+    }
+    return runConfig?.command ? [runConfig.command] : [""]
+  }, [runConfig])
+
+  const [commands, setCommands] = React.useState<Array<string>>(initialCommands)
+  const [mode, setMode] = React.useState<"series" | "parallel">(
+    runConfig?.mode === "parallel" ? "parallel" : "series"
+  )
+
+  const hasCommand = commands.some((command) => command.trim())
+
+  function updateCommand(index: number, value: string) {
+    setCommands((current) =>
+      current.map((command, i) => (i === index ? value : command))
+    )
+  }
+
+  function addCommand() {
+    setCommands((current) => [...current, ""])
+  }
+
+  function removeCommand(index: number) {
+    setCommands((current) =>
+      current.length > 1 ? current.filter((_, i) => i !== index) : current
+    )
+  }
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    onSave({
+      mode,
+      commands: commands.map((command) => command.trim()).filter(Boolean),
+    })
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -68,23 +121,72 @@ export function RunTab({
 
       <form
         className="app-panel flex flex-col gap-4 rounded-lg p-4"
-        onSubmit={onSubmit}
+        onSubmit={handleSubmit}
       >
         <input type="hidden" name="setName" value={activeConfigSet} />
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <label className="flex min-w-60 flex-1 flex-col gap-2 text-sm font-medium">
-            Run command
-            <input
-              name="command"
-              required
-              defaultValue={command}
-              className={inputClassName}
-              placeholder="npm run dev"
-            />
-          </label>
+          <div className="flex min-w-60 flex-1 flex-col gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span className="text-sm font-medium">Run commands</span>
+              <label className="flex items-center gap-2 text-sm font-medium">
+                Mode
+                <Select
+                  value={mode}
+                  onValueChange={(value) =>
+                    setMode(value === "parallel" ? "parallel" : "series")
+                  }
+                >
+                  <SelectTrigger className="w-36">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value="series">Series</SelectItem>
+                      <SelectItem value="parallel">Parallel</SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </label>
+            </div>
+            <div className="flex flex-col gap-2">
+              {commands.map((command, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <input
+                    value={command}
+                    required={index === 0}
+                    className={inputClassName}
+                    placeholder="npm run dev"
+                    onChange={(event) =>
+                      updateCommand(index, event.target.value)
+                    }
+                  />
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="outline"
+                    aria-label="Remove command"
+                    title="Remove command"
+                    disabled={commands.length <= 1}
+                    onClick={() => removeCommand(index)}
+                  >
+                    <Trash2 />
+                  </Button>
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                className="w-fit"
+                onClick={addCommand}
+              >
+                <Plus data-icon="inline-start" />
+                Add command
+              </Button>
+            </div>
+          </div>
           <RunLifecycleControls
             appPreviewUrl={appPreviewUrl}
-            commandConfigured={Boolean(command)}
+            commandConfigured={hasCommand}
             isPending={isPending}
             processStatus={processStatus}
             onRestart={onRestart}
@@ -117,35 +219,19 @@ export function RunTab({
         </div>
       </form>
 
-      <section className="app-panel flex flex-col gap-4 rounded-lg p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="text-base font-semibold">Last run log</h2>
-            <p className="text-sm text-muted-foreground">
-              {lastRunConfig
-                ? formatRunSummary(lastRunConfig)
-                : "No run has been recorded yet."}
-            </p>
-          </div>
-          {lastRunConfig ? (
-            <div className="grid gap-1 text-right text-xs text-muted-foreground">
-              <span>
-                Started {formatDateTime(lastRunConfig.lastRunStartedAt)}
-              </span>
-              <span>
-                Stopped {formatDateTime(lastRunConfig.lastRunStoppedAt)}
-              </span>
+      {processStatus.processes.length > 0 ? (
+        <section className="app-panel flex flex-col gap-4 rounded-lg p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold">Processes</h2>
+              <p className="text-sm text-muted-foreground">
+                Live output for each running command.
+              </p>
             </div>
-          ) : null}
-        </div>
-
-        {lastRunConfig ? (
-          <div className="grid gap-3 xl:grid-cols-2">
-            <RunLogPanel label="stdout" value={lastRunConfig.lastRunStdout} />
-            <RunLogPanel label="stderr" value={lastRunConfig.lastRunStderr} />
           </div>
-        ) : null}
-      </section>
+          <ProcessLogTabs processes={processStatus.processes} />
+        </section>
+      ) : null}
     </div>
   )
 }
@@ -314,6 +400,100 @@ function RunLifecycleControls({
   )
 }
 
+const processTabClassName =
+  "flex h-9 max-w-xs min-w-0 items-center gap-2 rounded-md px-3 text-sm font-semibold transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+
+function ProcessLogTabs({
+  processes,
+}: {
+  processes: Array<AppProcessChildSnapshot>
+}) {
+  const [activeTab, setActiveTab] = React.useState(0)
+
+  React.useEffect(() => {
+    if (activeTab >= processes.length) {
+      setActiveTab(Math.max(0, processes.length - 1))
+    }
+  }, [activeTab, processes.length])
+
+  return (
+    <Tabs.Root
+      value={activeTab}
+      onValueChange={setActiveTab}
+      className="flex flex-col gap-4"
+    >
+      <Tabs.List className="flex flex-wrap gap-1 rounded-lg border bg-muted/30 p-1">
+        {processes.map((process, index) => (
+          <Tabs.Tab
+            key={`${process.pid ?? "new"}-${index}`}
+            value={index}
+            className={processTabClassName}
+          >
+            <span
+              className={cn(
+                "font-mono text-xs font-semibold tracking-[0.12em] uppercase",
+                "opacity-80"
+              )}
+            >
+              #{index + 1}
+            </span>
+            <code className="truncate font-mono text-xs">{process.command}</code>
+            <StatusPill
+              className="shrink-0"
+              status={process.status.toLowerCase()}
+            >
+              {process.status}
+            </StatusPill>
+          </Tabs.Tab>
+        ))}
+      </Tabs.List>
+      {processes.map((process, index) => (
+        <Tabs.Panel
+          key={`${process.pid ?? "new"}-${index}`}
+          value={index}
+          keepMounted
+          className="min-w-0"
+        >
+          <ProcessLogPanel process={process} />
+        </Tabs.Panel>
+      ))}
+    </Tabs.Root>
+  )
+}
+
+function ProcessLogPanel({ process }: { process: AppProcessChildSnapshot }) {
+  const stdout = sanitizeRunLog(process.stdout).trim()
+  const stderr = sanitizeRunLog(process.stderr).trim()
+  const exitInfo = [
+    process.exitCode !== null ? `exit ${process.exitCode}` : null,
+    process.signal ? `signal ${process.signal}` : null,
+    process.error,
+  ]
+    .filter(Boolean)
+    .join(" - ")
+
+  return (
+    <div className="min-w-0 rounded-lg border bg-background">
+      {process.pid || exitInfo ? (
+        <div className="flex flex-wrap items-center gap-2 border-b bg-muted/50 px-3 py-2 text-xs">
+          {process.pid ? (
+            <span className="font-mono text-muted-foreground">
+              PID {process.pid}
+            </span>
+          ) : null}
+          {exitInfo ? (
+            <span className="font-mono text-destructive">{exitInfo}</span>
+          ) : null}
+        </div>
+      ) : null}
+      <div className="grid gap-3 xl:grid-cols-2">
+        <RunLogPanel label="stdout" value={stdout} />
+        <RunLogPanel label="stderr" value={stderr} />
+      </div>
+    </div>
+  )
+}
+
 function RunLogPanel({ label, value }: { label: string; value: string }) {
   const readableValue = sanitizeRunLog(value).trim()
 
@@ -331,13 +511,18 @@ function RunLogPanel({ label, value }: { label: string; value: string }) {
 
 function StatusPill({
   children,
+  className,
   status,
 }: {
   children: React.ReactNode
+  className?: string
   status: string
 }) {
   return (
-    <span className="status-pill max-w-full truncate" data-status={status}>
+    <span
+      className={cn("status-pill max-w-full truncate", className)}
+      data-status={status}
+    >
       {children}
     </span>
   )
@@ -370,31 +555,6 @@ export function getLocalAppUrl(log: string) {
   const lastMatch = matches.at(-1)?.[0]
 
   return lastMatch?.replace(/[.,;:!?]+$/, "") ?? null
-}
-
-function formatRunSummary(runConfig: RunConfigLastRun) {
-  const parts = [
-    runConfig.lastRunStatus ?? "unknown",
-    runConfig.lastRunPid ? `PID ${runConfig.lastRunPid}` : null,
-    runConfig.lastRunExitCode !== null
-      ? `exit ${runConfig.lastRunExitCode}`
-      : null,
-    runConfig.lastRunSignal ? `signal ${runConfig.lastRunSignal}` : null,
-    runConfig.lastRunError,
-  ].filter(Boolean)
-
-  return parts.join(" - ")
-}
-
-function formatDateTime(value: string | null) {
-  if (!value) {
-    return "not recorded"
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "medium",
-  }).format(new Date(value))
 }
 
 function formatProcessStatus(status: { pid: number | null; status: string }) {

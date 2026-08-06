@@ -199,16 +199,28 @@ function parseRunConfigInput(input: {
   appId?: number | string
   setName?: string
   command?: string
+  commands?: Array<string>
+  mode?: string
 }) {
   const { appId } = parseAppId(input)
   const setName = input.setName?.trim() || "default"
-  const command = input.command?.trim()
+  const mode: "series" | "parallel" =
+    input.mode === "parallel" ? "parallel" : "series"
 
-  if (!command) {
-    throw new Error("Run command is required")
+  const commandList = (input.commands ?? [])
+    .map((command) => String(command).trim())
+    .filter(Boolean)
+
+  // Backwards compatibility: a single `command` string.
+  if (!commandList.length && input.command?.trim()) {
+    commandList.push(input.command.trim())
   }
 
-  return { appId, setName, command }
+  if (!commandList.length) {
+    throw new Error("At least one run command is required")
+  }
+
+  return { appId, setName, mode, commands: commandList }
 }
 
 function parseConfigOrderInput(input: {
@@ -580,7 +592,8 @@ export const upsertRunConfigFn = createServerFn({ method: "POST" })
 
     return upsertRunConfigForApp(data.appId, {
       setName: data.setName,
-      command: data.command,
+      mode: data.mode,
+      commands: data.commands,
     })
   })
 

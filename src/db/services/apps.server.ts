@@ -6,14 +6,15 @@ import { normalizeAppPathLocation } from "@/server/app-paths.server"
 import { deleteTemplateBackup } from "@/server/template-backups.server"
 
 import { db, ensureDatabaseSchema } from "../client.server"
+import type { NewApp } from "../schema"
 import {
   appConfigSets,
   apps,
+  runConfigCommands,
   runConfigs,
   templateConfigs,
   variableConfigs,
 } from "../schema"
-import type { NewApp } from "../schema"
 
 export async function createApp(
   input: Pick<NewApp, "workspaceId" | "name" | "pathLocation">
@@ -66,6 +67,11 @@ export async function listApps(workspaceId: number) {
       },
       runConfigs: {
         orderBy: [asc(runConfigs.setName)],
+        with: {
+          commands: {
+            orderBy: [asc(runConfigCommands.position)],
+          },
+        },
       },
     },
   })
@@ -95,7 +101,13 @@ export async function getApp(id: number) {
           asc(templateConfigs.filePath),
         ],
       },
-      runConfigs: true,
+      runConfigs: {
+        with: {
+          commands: {
+            orderBy: [asc(runConfigCommands.position)],
+          },
+        },
+      },
     },
   })
 
@@ -196,11 +208,24 @@ export async function createAppWithConfig(input: {
     }
 
     if (input.runCommand) {
-      transaction.insert(runConfigs).values({
-        appId: app.id,
-        setName: "default",
-        command: input.runCommand,
-      })
+      const runConfig = transaction
+        .insert(runConfigs)
+        .values({
+          appId: app.id,
+          setName: "default",
+          command: input.runCommand,
+        })
+        .returning()
+        .get()
+
+      transaction
+        .insert(runConfigCommands)
+        .values({
+          runConfigId: runConfig.id,
+          command: input.runCommand,
+          position: 0,
+        })
+        .run()
     }
 
     return app

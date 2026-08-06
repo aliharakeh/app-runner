@@ -14,18 +14,28 @@ export type AppTemplateConfig = {
   position: number
 }
 
-export type RunConfigLastRun = {
+export type RunConfigCommand = {
+  id: number
+  command: string
+  position: number
+}
+
+export type RunConfig = {
   setName: string
   command: string
-  lastRunPid: number | null
-  lastRunStatus: string | null
-  lastRunStdout: string
-  lastRunStderr: string
-  lastRunStartedAt: string | null
-  lastRunStoppedAt: string | null
-  lastRunExitCode: number | null
-  lastRunSignal: string | null
-  lastRunError: string | null
+  mode: string
+  commands: Array<RunConfigCommand>
+}
+
+export type AppProcessChildSnapshot = {
+  command: string
+  pid: number | null
+  status: string
+  stdout: string
+  stderr: string
+  exitCode: number | null
+  signal: string | null
+  error: string | null
 }
 
 export type AppProcessSnapshot = {
@@ -40,4 +50,5 @@ export type AppProcessSnapshot = {
   exitCode: number | null
   signal: string | null
   error: string | null
+  processes: Array<AppProcessChildSnapshot>
 }

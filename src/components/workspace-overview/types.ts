@@ -10,6 +10,16 @@ export type AppProcessStatus = {
   exitCode: number | null
   signal: string | null
   error: string | null
+  processes: Array<{
+    command: string
+    pid: number | null
+    status: string
+    stdout: string
+    stderr: string
+    exitCode: number | null
+    signal: string | null
+    error: string | null
+  }>
 }
 
 export type WorkspaceOverviewApp = {
@@ -18,7 +28,12 @@ export type WorkspaceOverviewApp = {
   pathLocation: string
   activeVariableSet: string
   runConfig?: { command: string } | null
-  runConfigs: Array<{ setName: string; command: string }>
+  runConfigs: Array<{
+    setName: string
+    command: string
+    mode?: string
+    commands?: Array<{ command: string }>
+  }>
   configSets: Array<{ setName: string }>
   variableConfigs: Array<{ setName: string }>
   templateConfigs: Array<{ setName: string }>

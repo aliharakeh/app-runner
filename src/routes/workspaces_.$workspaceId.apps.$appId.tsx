@@ -36,16 +36,16 @@ import {
   deleteAppConfigSetFn,
   deleteTemplateConfigFn,
   deleteVariableConfigFn,
-  getAppProcessStatusesFn,
   getAppFn,
+  getAppProcessStatusesFn,
   listAppFilesFn,
   reorderTemplateConfigsFn,
   reorderVariableConfigsFn,
   restartAppProcessFn,
   startAppProcessFn,
   stopAppProcessFn,
-  updateTemplateConfigFn,
   updateAppFn,
+  updateTemplateConfigFn,
   updateVariableConfigFn,
   upsertRunConfigFn,
 } from "@/db/workspace-functions"
@@ -512,18 +512,20 @@ function AppConfigPage() {
     })
   }
 
-  function handleRunSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-
-    const formData = new FormData(event.currentTarget)
-    const setName = String(formData.get("setName") ?? activeConfigSet)
-    const command = String(formData.get("command") ?? "")
-
+  function handleRunSave(input: {
+    mode: "series" | "parallel"
+    commands: Array<string>
+  }) {
     startTransition(async () => {
       try {
         setError("")
         await upsertRunConfig({
-          data: { appId: currentApp.id, setName, command },
+          data: {
+            appId: currentApp.id,
+            setName: activeConfigSet,
+            mode: input.mode,
+            commands: input.commands,
+          },
         })
         await invalidateAfterSave()
       } catch (saveError) {
@@ -704,7 +706,6 @@ function AppConfigPage() {
         <RunTab
           key={activeConfigSet}
           activeConfigSet={activeConfigSet}
-          command={activeRunConfig?.command ?? ""}
           isPending={isPending}
           processStatus={processStatus}
           runConfig={activeRunConfig}
@@ -713,7 +714,7 @@ function AppConfigPage() {
           onRestart={() => handleProcessAction("restart")}
           onStart={() => handleProcessAction("start")}
           onStop={() => handleProcessAction("stop")}
-          onSubmit={handleRunSubmit}
+          onSave={handleRunSave}
         />
       ) : null}
     </section>
