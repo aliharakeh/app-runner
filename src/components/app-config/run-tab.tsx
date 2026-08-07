@@ -59,7 +59,7 @@ export function RunTab({
   onStart: () => void
   onStop: () => void
   onSave: (input: {
-    mode: "series" | "parallel"
+    mode: "sequential" | "parallel"
     commands: Array<string>
   }) => void
 }) {
@@ -80,8 +80,8 @@ export function RunTab({
   }, [runConfig])
 
   const [commands, setCommands] = React.useState<Array<string>>(initialCommands)
-  const [mode, setMode] = React.useState<"series" | "parallel">(
-    runConfig?.mode === "parallel" ? "parallel" : "series"
+  const [mode, setMode] = React.useState<"sequential" | "parallel">(
+    runConfig?.mode === "parallel" ? "parallel" : "sequential"
   )
 
   const hasCommand = commands.some((command) => command.trim())
@@ -133,7 +133,7 @@ export function RunTab({
                 <Select
                   value={mode}
                   onValueChange={(value) =>
-                    setMode(value === "parallel" ? "parallel" : "series")
+                    setMode(value === "parallel" ? "parallel" : "sequential")
                   }
                 >
                   <SelectTrigger className="w-36">
@@ -141,7 +141,7 @@ export function RunTab({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      <SelectItem value="series">Series</SelectItem>
+                      <SelectItem value="sequential">Sequential</SelectItem>
                       <SelectItem value="parallel">Parallel</SelectItem>
                     </SelectGroup>
                   </SelectContent>

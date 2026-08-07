@@ -218,8 +218,8 @@ function parseRunConfigInput(input: {
 }) {
   const { appId } = parseAppId(input)
   const setName = input.setName?.trim() || "default"
-  const mode: "series" | "parallel" =
-    input.mode === "parallel" ? "parallel" : "series"
+  const mode: "sequential" | "parallel" =
+    input.mode === "parallel" ? "parallel" : "sequential"
 
   const commandList = (input.commands ?? [])
     .map((command) => String(command).trim())

@@ -500,7 +500,7 @@ function AppConfigPage() {
   }
 
   function handleRunSave(input: {
-    mode: "series" | "parallel"
+    mode: "sequential" | "parallel"
     commands: Array<string>
   }) {
     startTransition(async () => {

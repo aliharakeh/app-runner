@@ -60,7 +60,7 @@ type ChildEntry = {
 
 type AppProcessRecord = {
   appId: number
-  mode: "series" | "parallel"
+  mode: "sequential" | "parallel"
   commands: Array<string>
   children: Array<ChildEntry>
   mappedFiles: Array<{ backupPath: string; targetPath: string }>
@@ -96,7 +96,7 @@ export async function startAppProcess(appId: number) {
 
   validateAppPathLocation(app.pathLocation)
 
-  const mode = runConfig?.mode === "parallel" ? "parallel" : "series"
+  const mode = runConfig?.mode === "parallel" ? "parallel" : "sequential"
   const variableConfigs = getActiveVariableConfigs(app)
   const commands = rawCommands.map((command) =>
     renderCommandWithVariables(command, variableConfigs)
@@ -255,7 +255,7 @@ async function onChildFinished(record: AppProcessRecord, entry: ChildEntry) {
     return
   }
 
-  if (record.mode === "series") {
+  if (record.mode === "sequential") {
     const nextIndex = record.children.length
     if (nextIndex < record.commands.length) {
       const app = await getApp(record.appId)

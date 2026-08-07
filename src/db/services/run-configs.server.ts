@@ -6,7 +6,7 @@ import { db, ensureDatabaseSchema } from "../client.server"
 import type { NewRunConfig } from "../schema"
 import { runConfigCommands, runConfigs } from "../schema"
 
-export type RunMode = "series" | "parallel"
+export type RunMode = "sequential" | "parallel"
 
 export async function createRunConfig(
   input: Pick<NewRunConfig, "appId" | "setName" | "command">

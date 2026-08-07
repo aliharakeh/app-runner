@@ -99,7 +99,7 @@ export const runConfigs = sqliteTable(
       .references(() => apps.id, { onDelete: "cascade" }),
     setName: text("set_name").notNull().default("default"),
     command: text("command").notNull(),
-    mode: text("mode").notNull().default("series"),
+    mode: text("mode").notNull().default("sequential"),
     createdAt: text("created_at")
       .notNull()
       .default(sql`CURRENT_TIMESTAMP`),

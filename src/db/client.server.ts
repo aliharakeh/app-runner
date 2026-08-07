@@ -76,7 +76,7 @@ export function ensureDatabaseSchema() {
       app_id INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
       set_name TEXT NOT NULL DEFAULT 'default',
       command TEXT NOT NULL,
-      mode TEXT NOT NULL DEFAULT 'series',
+      mode TEXT NOT NULL DEFAULT 'sequential',
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
@@ -106,7 +106,11 @@ export function ensureDatabaseSchema() {
   )
   ensureColumn("template_configs", "position", "INTEGER NOT NULL DEFAULT 0")
   ensureColumn("run_configs", "set_name", "TEXT NOT NULL DEFAULT 'default'")
-  ensureColumn("run_configs", "mode", "TEXT NOT NULL DEFAULT 'series'")
+  ensureColumn("run_configs", "mode", "TEXT NOT NULL DEFAULT 'sequential'")
+
+  sqlite.exec(`
+    UPDATE run_configs SET mode = 'sequential' WHERE mode = 'series';
+  `)
 
   sqlite.exec(`
     DROP INDEX IF EXISTS run_configs_app_id_unique;
