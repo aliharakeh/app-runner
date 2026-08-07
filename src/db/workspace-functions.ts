@@ -661,16 +661,49 @@ function parsePickFolderInput(input: { initialPath?: string }) {
 export const pickFolderFn = createServerFn({ method: "POST" })
   .validator(parsePickFolderInput)
   .handler(async ({ data }) => {
-    const { pickFolder, validateAppPathLocation } =
+    const { pickAppFolder } = await import("@/server/app-paths.server")
+
+    return {
+      path: await pickAppFolder(data.initialPath),
+    }
+  })
+
+function parsePickAppFileInput(input: {
+  appId?: number
+  initialRelativePath?: string
+}) {
+  const appId = Number(input.appId)
+  const initialRelativePath = input.initialRelativePath?.trim()
+
+  if (!Number.isInteger(appId) || appId <= 0) {
+    throw new Error("App id is required")
+  }
+
+  return {
+    appId,
+    initialRelativePath: initialRelativePath || undefined,
+  }
+}
+
+export const pickAppFileFn = createServerFn({ method: "POST" })
+  .validator(parsePickAppFileInput)
+  .handler(async ({ data }) => {
+    const { getApp } = await import("./services/apps.server")
+    const { pickFile, toRelativeAppFilePath } =
       await import("@/server/app-paths.server")
+    const app = await getApp(data.appId)
 
-    const selected = await pickFolder(data.initialPath)
-
-    if (!selected) {
-      return { path: null as string | null }
+    if (!app) {
+      throw new Error("App not found")
     }
 
-    validateAppPathLocation(selected)
+    const selected = await pickFile(app.pathLocation, data.initialRelativePath)
 
-    return { path: selected }
+    if (!selected) {
+      return { filePath: null as string | null }
+    }
+
+    return {
+      filePath: toRelativeAppFilePath(app.pathLocation, selected),
+    }
   })

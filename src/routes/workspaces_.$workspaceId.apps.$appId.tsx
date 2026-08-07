@@ -39,7 +39,6 @@ import {
   deleteVariableConfigFn,
   getAppFn,
   getAppProcessStatusesFn,
-  listAppFilesFn,
   reorderTemplateConfigsFn,
   reorderVariableConfigsFn,
   restartAppProcessFn,
@@ -59,22 +58,18 @@ export const Route = createFileRoute("/workspaces_/$workspaceId/apps/$appId")({
     tab: isConfigTab(search.tab) ? search.tab : "variables",
   }),
   loader: async ({ params }) => {
-    const [app, processStatuses, appFiles] = await Promise.all([
+    const [app, processStatuses] = await Promise.all([
       getAppFn({
         data: { appId: params.appId },
       }),
       getAppProcessStatusesFn({
         data: { appIds: [params.appId] },
       }),
-      listAppFilesFn({
-        data: { appId: params.appId },
-      }),
     ])
     const processStatus = Object.values(processStatuses)[0]
 
     return {
       app,
-      appFiles,
       processStatus,
     }
   },
@@ -86,8 +81,7 @@ function AppConfigPage() {
   const navigate = Route.useNavigate()
   const { workspaceId, appId } = Route.useParams()
   const { tab } = Route.useSearch()
-  const { app, appFiles, processStatus: loaderProcessStatus } =
-    Route.useLoaderData()
+  const { app, processStatus: loaderProcessStatus } = Route.useLoaderData()
   const processStatus = useAppProcessStream(
     Number(appId),
     loaderProcessStatus
@@ -686,7 +680,7 @@ function AppConfigPage() {
       {tab === "template" ? (
         <TemplateTab
           activeConfigSet={activeConfigSet}
-          appFiles={appFiles}
+          appId={currentApp.id}
           isPending={isPending}
           templates={activeTemplates}
           onDelete={handleDeleteTemplate}

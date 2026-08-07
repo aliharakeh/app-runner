@@ -1,6 +1,8 @@
 import { Dialog } from "@base-ui/react/dialog"
+import { useServerFn } from "@tanstack/react-start"
 import {
   ChevronDown,
+  File,
   GripVertical,
   Pencil,
   Plus,
@@ -10,6 +12,7 @@ import {
 import * as React from "react"
 
 import { EmptyState } from "@/components/app-config/empty-state"
+import { inputClassName } from "@/components/app-config/form-styles"
 import { reorderItemsById } from "@/components/app-config/reorder"
 import {
   getTemplateLanguage,
@@ -18,18 +21,15 @@ import {
 import type { AppTemplateConfig } from "@/components/app-config/types"
 import { Button } from "@/components/ui/button"
 import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxList,
-} from "@/components/ui/combobox"
+  InputGroup,
+  InputGroupAddon,
+} from "@/components/ui/input-group"
+import { pickAppFileFn } from "@/db/workspace-functions"
 import { cn } from "@/lib/utils"
 
 export function TemplateTab({
   activeConfigSet,
-  appFiles,
+  appId,
   isPending,
   templates,
   onDelete,
@@ -37,7 +37,7 @@ export function TemplateTab({
   onSubmit,
 }: {
   activeConfigSet: string
-  appFiles: Array<string>
+  appId: number
   isPending: boolean
   templates: Array<AppTemplateConfig>
   onDelete: (id: number) => void
@@ -102,7 +102,7 @@ export function TemplateTab({
 
       <TemplateDialog
         activeConfigSet={activeConfigSet}
-        appFiles={appFiles}
+        appId={appId}
         isPending={isPending}
         mode="create"
         open={isCreateOpen}
@@ -115,7 +115,7 @@ export function TemplateTab({
           key={editingTemplate.id}
           activeConfigSet={activeConfigSet}
           isPending={isPending}
-          appFiles={appFiles}
+          appId={appId}
           mode="edit"
           open
           template={editingTemplate}
@@ -216,7 +216,7 @@ export function TemplateTab({
 
 function TemplateDialog({
   activeConfigSet,
-  appFiles,
+  appId,
   isPending,
   mode,
   open,
@@ -225,7 +225,7 @@ function TemplateDialog({
   onSubmit,
 }: {
   activeConfigSet: string
-  appFiles: Array<string>
+  appId: number
   isPending: boolean
   mode: "create" | "edit"
   open: boolean
@@ -236,23 +236,39 @@ function TemplateDialog({
     onSaved?: () => void
   ) => void
 }) {
+  const pickAppFile = useServerFn(pickAppFileFn)
   const [filePath, setFilePath] = React.useState(template?.filePath ?? "")
   const [content, setContent] = React.useState(template?.templateContent ?? "")
+  const [isPicking, startPicking] = React.useTransition()
+  const [pickerError, setPickerError] = React.useState("")
   const title = mode === "create" ? "Add template" : "Edit template"
   const language = getTemplateLanguage(filePath, content)
-  const filePathItems = Array.from(
-    new Set(
-      [template?.filePath, ...appFiles].filter(
-        (candidate): candidate is string => Boolean(candidate)
-      )
-    )
-  )
-  const normalizedFilePathQuery = filePath.trim().toLowerCase()
-  const filteredFilePathItems = normalizedFilePathQuery
-    ? filePathItems.filter((file) =>
-        file.toLowerCase().includes(normalizedFilePathQuery)
-      )
-    : filePathItems
+
+  React.useEffect(() => {
+    setFilePath(template?.filePath ?? "")
+    setContent(template?.templateContent ?? "")
+    setPickerError("")
+  }, [template])
+
+  function handleBrowse() {
+    startPicking(async () => {
+      try {
+        setPickerError("")
+        const result = await pickAppFile({
+          data: {
+            appId,
+            initialRelativePath: filePath || undefined,
+          },
+        })
+
+        if (result.filePath) {
+          setFilePath(result.filePath)
+        }
+      } catch (error) {
+        setPickerError(getErrorMessage(error))
+      }
+    })
+  }
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -287,42 +303,42 @@ function TemplateDialog({
             <input type="hidden" name="setName" value={activeConfigSet} />
             <label className="flex flex-col gap-2 text-sm font-medium">
               Replaced file path
-              <input type="hidden" name="filePath" value={filePath} />
-              <Combobox
-                items={filePathItems}
-                required
-                inputValue={filePath}
-                value={filePath || null}
-                onInputValueChange={setFilePath}
-                onValueChange={(value) => {
-                  setFilePath(value ?? "")
-                }}
-              >
-                <ComboboxInput
-                  autoFocus
+              <input type="hidden" name="filePath" value={filePath} required />
+              <InputGroup className="h-9">
+                <input
+                  readOnly
                   required
-                  showClear
-                  className="h-9 w-full bg-background shadow-inner shadow-muted/40"
-                  placeholder="Search or type a file path"
+                  value={filePath}
+                  disabled={isPending || isPicking}
+                  placeholder="Choose a file inside the app folder"
+                  aria-label="Replaced file path"
+                  className={cn(
+                    inputClassName,
+                    "min-w-0 flex-1 rounded-none border-0 bg-transparent px-2.5 shadow-none ring-0 focus-visible:ring-0 disabled:bg-transparent"
+                  )}
                 />
-                <ComboboxContent>
-                  <ComboboxList>
-                    {filteredFilePathItems.length ? (
-                      filteredFilePathItems.map((file) => (
-                        <ComboboxItem key={file} value={file}>
-                          <span className="truncate font-mono text-xs">
-                            {file}
-                          </span>
-                        </ComboboxItem>
-                      ))
-                    ) : (
-                      <ComboboxEmpty className="flex">
-                        No matching files.
-                      </ComboboxEmpty>
-                    )}
-                  </ComboboxList>
-                </ComboboxContent>
-              </Combobox>
+                <InputGroupAddon align="inline-end" className="pr-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    autoFocus={mode === "create"}
+                    disabled={isPending || isPicking}
+                    aria-label="Browse for file"
+                    title="Browse for file"
+                    className="h-7 shrink-0 gap-1.5 px-2"
+                    onClick={handleBrowse}
+                  >
+                    <File />
+                    {isPicking ? "Opening…" : "Browse"}
+                  </Button>
+                </InputGroupAddon>
+              </InputGroup>
+              {pickerError ? (
+                <p className="text-sm font-normal text-destructive" role="alert">
+                  {pickerError}
+                </p>
+              ) : null}
             </label>
             <TemplateCodeEditor
               content={content}
@@ -345,6 +361,10 @@ function TemplateDialog({
       </Dialog.Portal>
     </Dialog.Root>
   )
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Something went wrong"
 }
 
 function TemplateContentPreview({

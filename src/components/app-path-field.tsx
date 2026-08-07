@@ -4,10 +4,7 @@ import * as React from "react"
 
 import { inputClassName } from "@/components/app-config/form-styles"
 import { Button } from "@/components/ui/button"
-import {
-  InputGroup,
-  InputGroupAddon,
-} from "@/components/ui/input-group"
+import { InputGroup, InputGroupAddon } from "@/components/ui/input-group"
 import { pickFolderFn } from "@/db/workspace-functions"
 import { cn } from "@/lib/utils"
 
